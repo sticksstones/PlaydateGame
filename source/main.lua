@@ -22,6 +22,7 @@ function playdate.update()
   local dt <const> = 1.0 / playdate.display.getRefreshRate()
   
   checkToggleEditorMode() 
+
   
   if not inEditor then
     update(dt)  
@@ -34,6 +35,7 @@ function playdate.update()
   if inEditor then 
     drawInEditor()
   end
+
   playdate.graphics.sprite.update()    
 end
 
@@ -54,6 +56,7 @@ local WORLD_PIXEL_SCALE <const> = 1.0
 
 local world = nil
 local platforms = table.create(2, 0)
+local platformSprites = table.create(2,0)
 local selectedPlatformIndex = 0
 local box = nil
 local selected_box = 1
@@ -70,6 +73,8 @@ local CAMERA_BOUND_Y <const> = 0.2
 
 local desiredCameraOffset = nil
 local currentCameraOffset = nil
+
+local ninesliceImg = nil
 
 
 local function deg2Rad(degrees)
@@ -92,6 +97,33 @@ local function createPlatform(x, y, width, height, rotation)
   platform:setRotation(deg2Rad(rotation))
   world:addBody(platform)
   platforms[#platforms + 1] = platform
+  
+  local drawPoly = geometry.polygon.new(platform:getPolygon())
+  local x1 = drawPoly:getPointAt(1).x
+  local x2 = drawPoly:getPointAt(2).x 
+  local y1 = drawPoly:getPointAt(1).y 
+  local y2 = drawPoly:getPointAt(2).y
+  local x21 = drawPoly:getPointAt(3).x
+  local x22 = drawPoly:getPointAt(4).x 
+  local y21 = drawPoly:getPointAt(3).y 
+  local y22 = drawPoly:getPointAt(4).y
+ 
+  width = geometry.lineSegment.new(x1,y1,x2,y2):length()
+  height = geometry.lineSegment.new(x2,y2,x21,y21):length()
+  center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
+   
+  
+  contextImg = playdate.graphics.image.new(width+1, height+1, graphics.kColorClear)
+  graphics.lockFocus(contextImg)
+  graphics.setColor(graphics.kColorBlack)
+  ninesliceImg:drawInRect(0, 0, width, height)
+  graphics.unlockFocus()
+
+  platformSprite = graphics.sprite.new(contextImg)
+  platformSprite:add()
+  platformSprite:moveTo(x,y)
+  platformSprite:setRotation(rotation)
+  platformSprites[#platformSprites + 1] = platformSprite
 end
 
 local function createBall(x, y, width, height, mass)
@@ -130,19 +162,8 @@ function drawPlatform(drawPoly, isSelected)
  
   width = geometry.lineSegment.new(x1,y1,x2,y2):length()
   height = geometry.lineSegment.new(x2,y2,x21,y21):length()
-  center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
+  center = getPolyCenter(drawPoly)
    
-  ninesliceImg = graphics.nineSlice.new("assets/pngs/general/Platform9SliceSquare", 4, 4, 8, 8)
-  
-  contextImg = playdate.graphics.image.new(width, height, graphics.kColorClear)
-  graphics.lockFocus(contextImg)
-  graphics.setColor(graphics.kColorBlack)
-  ninesliceImg:drawInRect(0, 0, width, height)
-  graphics.unlockFocus()
-
-  graphics.setColor(graphics.kColorBlack)
-  contextImg:drawRotated(center.x, center.y, math.atan2((y2-y1),(x2-x1)) * 180.0/ 3.14, 1.0, 1.0 )
-  
   if isSelected then
     playdate.graphics.drawCircleAtPoint(center, playdate.math.lerp(0.0, math.min(height/2.0 - 2, 8), boltAnimTimer.value))
   end
@@ -182,6 +203,8 @@ function setup()
   -- Setup background color
   playdate.graphics.setBackgroundColor(playdate.graphics.kColorClear)
   
+  ninesliceImg = graphics.nineSlice.new("assets/pngs/general/Platform9SliceSquare", 4, 4, 8, 8)
+  
   -- Create world
   world = playbox.world.new(0.0, 200.0, 30)
   world:setPixelScale(WORLD_PIXEL_SCALE)
@@ -195,6 +218,8 @@ function setup()
     
   levelData = playdate.datastore.read()
   loadLevelFromData(levelData)
+  
+  
   
   game_setup = true  
 end
@@ -277,9 +302,18 @@ function update(dt)
   -- Update physics world
   world:update(dt)
   
-  -- Dampen torque
+  -- Update platforms
   for i, platform in ipairs(platforms) do
     platform:setTorque(platform:getTorque() * math.pow(0.2, dt))
+    
+    x,y = platform:getCenter()
+    platformSprites[i]:moveTo(x,y)
+
+    rotation = rad2Deg(platform:getRotation())
+    if platformSprites[i]:getRotation() ~= rotation then 
+      platformSprites[i]:setRotation(rotation)
+    end
+    
   end
 
   -- Update ball rotation
@@ -325,15 +359,24 @@ function draw()
   
   graphics.setLineWidth(1)
   graphics.setDitherPattern(0.5)
-  
-  -- Draw platforms
-  for i, platform in ipairs(platforms) do
+
+  if selectedPlatformIndex > 0 then 
+    local platform = platforms[selectedPlatformIndex]
     local platform_polygon = geometry.polygon.new(platform:getPolygon())
     platform_polygon:close()
-    graphics.setDitherPattern(0.5)
+    graphics.setDitherPattern(0.0)
     
-    drawPlatform(platform_polygon, i == selectedPlatformIndex)
+    drawPlatform(platform_polygon, true)
   end
+  
+  -- Draw platforms
+  -- for i, platform in ipairs(platforms) do
+  --   local platform_polygon = geometry.polygon.new(platform:getPolygon())
+  --   platform_polygon:close()
+  --   graphics.setDitherPattern(0.5)
+  --   
+  --   drawPlatform(platform_polygon, i == selectedPlatformIndex)
+  -- end
   
   -- -- Draw swing joint
   -- graphics.setStrokeLocation(graphics.kStrokeCentered)
