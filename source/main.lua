@@ -19,6 +19,8 @@ function playdate.update()
     setup()
   end
   
+  -- test 
+  
   local dt <const> = 1.0 / playdate.display.getRefreshRate()
   
   if not inEditor then
