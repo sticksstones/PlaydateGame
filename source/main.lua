@@ -28,6 +28,7 @@ function playdate.update()
     updateInEditor(dt)
   end
   
+  updateCamera(dt)  
   draw()
   
   if inEditor then 
@@ -52,6 +53,8 @@ local WORLD_HEIGHT <const> = SCREEN_WIDTH
 
 local WORLD_PIXEL_SCALE <const> = 1.0
 
+local ninesliceImg = nil
+
 local world = nil
 local platforms = table.create(2, 0)
 local platformSprites = table.create(2,0)
@@ -61,8 +64,10 @@ local ball = nil
 
 local boltAnimTimer = nil
 
-local CAMERA_TRACK_BOUND_X <const> = 0.4
-local CAMERA_TRACK_BOUND_Y <const> = 0.4
+-- Camera vars
+
+local CAMERA_TRACK_BOUND_X <const> = 0.25
+local CAMERA_TRACK_BOUND_Y <const> = 0.15
 
 local CAMERA_BOUND_X <const> = 0.2
 local CAMERA_BOUND_Y <const> = 0.2
@@ -70,8 +75,16 @@ local CAMERA_BOUND_Y <const> = 0.2
 local desiredCameraOffset = nil
 local currentCameraOffset = nil
 
-local ninesliceImg = nil
+local cameraRecenterTimestamp = 0.0
+local CAMERA_RECENTER_TIME = 1.0
+local cameraNeedsRecenter = false
+local cameraTarget = nil
 
+
+-- Editor vars
+local cursor = nil
+local cursorMoveVel = 1.0
+local CURSOR_MAX_VEL <const> = 8.0
 
 local function deg2Rad(degrees)
   return (degrees * 3.14 / 180.0)
@@ -230,6 +243,51 @@ function checkToggleEditorMode()
 end
 
 function updateInEditor(dt)  
+  if not cursor then 
+      cursorImg = graphics.image.new("assets/pngs/general/Cursor")
+      cursor = graphics.sprite.new(cursorImg)
+      cursor:moveTo(currentCameraOffset.x + SCREEN_WIDTH/2.0, currentCameraOffset.y + SCREEN_HEIGHT/2)
+      cursor:add()
+  end
+  
+  if cursor then 
+    cameraTarget = cursor
+  end
+  
+  -- Input handling
+  if playdate.buttonJustPressed(playdate.kButtonB) then
+
+  end
+    
+  if playdate.buttonJustPressed(playdate.kButtonA) then
+  end
+
+  if not playdate.buttonIsPressed(playdate.kButtonLeft) and 
+     not playdate.buttonIsPressed(playdate.kButtonRight) and 
+     not playdate.buttonIsPressed(playdate.kButtonUp) and 
+     not playdate.buttonIsPressed(playdate.kButtonDown)
+     then 
+      cursorMoveVel = 1.0
+    else 
+      cursorMoveVel += dt * 5.0
+      cursorMoveVel = math.min(CURSOR_MAX_VEL, cursorMoveVel)
+  end
+  
+  if playdate.buttonIsPressed(playdate.kButtonLeft) then
+    cursor:moveBy(-cursorMoveVel, 0)
+  end
+  
+  if playdate.buttonIsPressed(playdate.kButtonRight) then
+    cursor:moveBy(cursorMoveVel, 0)
+  end  
+
+  if playdate.buttonIsPressed(playdate.kButtonDown) then
+    cursor:moveBy(0, cursorMoveVel)
+  end  
+  
+  if playdate.buttonIsPressed(playdate.kButtonUp) then
+    cursor:moveBy(0, -cursorMoveVel)
+  end  
   
 end
 
@@ -262,26 +320,71 @@ function jumpPlatform(direction)
   boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic)
 end
 
-function updateCamera(dt) 
-  local rightBoundX = currentCameraOffset.x + ((1.0 - CAMERA_TRACK_BOUND_X) * SCREEN_WIDTH)
-  local leftBoundX = currentCameraOffset.x + (CAMERA_TRACK_BOUND_X * SCREEN_WIDTH)
-  
-  if ball.x > rightBoundX and box:getVelocity() > 0 then
-    desiredCameraOffset.x = ball.x - rightBoundX
-  elseif ball.x < leftBoundX and box:getVelocity() < 0 then 
-    desiredCameraOffset.x =  ball.x - leftBoundX
+function updateCamera(dt)     
+  if cameraTarget then     
+    local camUpdated = false
+
+    local rightBoundX = desiredCameraOffset.x + ((1.0 - CAMERA_TRACK_BOUND_X) * SCREEN_WIDTH)
+    local leftBoundX = desiredCameraOffset.x + (CAMERA_TRACK_BOUND_X * SCREEN_WIDTH)
+    
+    if cameraTarget.x > rightBoundX then
+      local newOffset = desiredCameraOffset.x + cameraTarget.x - rightBoundX
+      if math.abs(newOffset - desiredCameraOffset.x) > 1.0 then 
+        desiredCameraOffset.x = newOffset
+        camUpdated = true
+      end
+    elseif cameraTarget.x < leftBoundX then 
+      local newOffset = desiredCameraOffset.x + cameraTarget.x - leftBoundX
+      if math.abs(newOffset - desiredCameraOffset.x) > 1.0 then 
+        desiredCameraOffset.x =  newOffset
+        camUpdated = true
+      end
+    end
+    
+    local upBoundY = desiredCameraOffset.y + (CAMERA_TRACK_BOUND_Y * SCREEN_HEIGHT)    
+    local downBoundY = desiredCameraOffset.y + ((1.0 - CAMERA_TRACK_BOUND_Y) * SCREEN_HEIGHT)
+    
+    if cameraTarget.y < upBoundY then
+      local newOffset = desiredCameraOffset.y + cameraTarget.y - upBoundY
+      if math.abs(newOffset - desiredCameraOffset.y) > 1.0 then 
+        desiredCameraOffset.y = newOffset
+        camUpdated = true
+      end
+    elseif cameraTarget.y > downBoundY then 
+      local newOffset = desiredCameraOffset.y + cameraTarget.y - downBoundY
+      if math.abs(newOffset - desiredCameraOffset.y) > 1.0 then 
+        desiredCameraOffset.y =  newOffset
+        camUpdated = true
+      end
+    end
+    
+    if camUpdated then 
+      cameraRecenterTimestamp = playdate.getElapsedTime() + CAMERA_RECENTER_TIME
+      cameraNeedsRecenter = true
+    end
+        
+    if cameraNeedsRecenter and playdate.getElapsedTime() > cameraRecenterTimestamp then
+      desiredCameraOffset.x = cameraTarget.x - SCREEN_WIDTH/2.0
+      desiredCameraOffset.y = cameraTarget.y - SCREEN_HEIGHT/2.0
+      cameraNeedsRecenter = false
+    end
+    
+    local moveVec = geometry.vector2D.new(desiredCameraOffset.x - currentCameraOffset.x, desiredCameraOffset.y - currentCameraOffset.y) 
+    local lerpFactor = playdate.math.lerp(7.5, 10.0, moveVec:magnitude()/100.0) 
+    
+    currentCameraOffset.x = currentCameraOffset.x + ((desiredCameraOffset.x - currentCameraOffset.x) / lerpFactor)--* math.pow(99.0, dt))
+    currentCameraOffset.y = currentCameraOffset.y + ((desiredCameraOffset.y - currentCameraOffset.y) / lerpFactor)--* math.pow(99.0, dt))
+    
   end
-  
-  if math.abs(desiredCameraOffset.x - currentCameraOffset.x) > 2.0 then 
-    currentCameraOffset.x = currentCameraOffset.x + (desiredCameraOffset.x - currentCameraOffset.x) * math.pow(1.0 - 0.5, dt)
-  -- else 
-  --   currentCameraOffset.x = desiredCameraOffset.x
-  end
-  
-  currentCameraOffset.y = currentCameraOffset.y + (desiredCameraOffset.y - currentCameraOffset.y) * math.pow(1.0 - 0.5, dt)  
 end
 
 function update(dt)
+  if cursor then 
+    cursor:remove()
+    cursor = nil
+  end
+  
+  cameraTarget = ball;
   
   playdate.timer.updateTimers()
 
@@ -329,13 +432,10 @@ function update(dt)
   if playdate.buttonJustPressed(playdate.kButtonRight) then
     jumpPlatform(1)
   end  
-  
-  -- Update camera
-  updateCamera(dt)
 end
 
 function draw()
-  graphics.setDrawOffset(-currentCameraOffset.x, currentCameraOffset.y)
+  graphics.setDrawOffset(-currentCameraOffset.x, -currentCameraOffset.y)
   graphics.clear(graphics.kColorWhite)
   graphics.setColor(graphics.kColorBlack)
   graphics.setLineWidth(1)
