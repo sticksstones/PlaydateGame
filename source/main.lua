@@ -13,7 +13,6 @@ local game_setup = false
 local inEditor = false
 local editorToggleButtonReleased = false
 
-
 function playdate.update()
   if not game_setup then
     setup()
@@ -23,7 +22,6 @@ function playdate.update()
   
   checkToggleEditorMode() 
 
-  
   if not inEditor then
     update(dt)  
   else
@@ -59,8 +57,6 @@ local platforms = table.create(2, 0)
 local platformSprites = table.create(2,0)
 local selectedPlatformIndex = 0
 local box = nil
-local selected_box = 1
-
 local ball = nil
 
 local boltAnimTimer = nil
@@ -193,20 +189,17 @@ function initializeLevelData()
 end
 
 function setup()
-  -- Setup game refresh rate
+ -- Setup graphics
   playdate.display.setRefreshRate(30)
+  playdate.graphics.setBackgroundColor(playdate.graphics.kColorClear)
+  ninesliceImg = graphics.nineSlice.new("assets/pngs/general/Platform9SliceSquare", 4, 4, 8, 8)
 
   -- Setup camera
   currentCameraOffset = geometry.point.new(0,0)
   desiredCameraOffset = geometry.point.new(0,0)
-  
-  -- Setup background color
-  playdate.graphics.setBackgroundColor(playdate.graphics.kColorClear)
-  
-  ninesliceImg = graphics.nineSlice.new("assets/pngs/general/Platform9SliceSquare", 4, 4, 8, 8)
-  
-  -- Create world
-  world = playbox.world.new(0.0, 200.0, 30)
+    
+  -- Create physics world
+  world = playbox.world.new(0.0, 200.0, 4)
   world:setPixelScale(WORLD_PIXEL_SCALE)
   world:setAngularVelocityDampening(0.4)
   
@@ -218,8 +211,6 @@ function setup()
     
   levelData = playdate.datastore.read()
   loadLevelFromData(levelData)
-  
-  
   
   game_setup = true  
 end
@@ -321,7 +312,6 @@ function update(dt)
   box_polygon:close()
   ball:setRotation(ball:getRotation() + box:getVelocity())
   ball:moveTo(getPolyCenter(box_polygon))
-
   
   -- Input handling
   if playdate.buttonJustPressed(playdate.kButtonB) then
@@ -348,36 +338,16 @@ function draw()
   graphics.setDrawOffset(-currentCameraOffset.x, currentCameraOffset.y)
   graphics.clear(graphics.kColorWhite)
   graphics.setColor(graphics.kColorBlack)
-  
-  -- graphics.setDitherPattern(0.25)
-  -- graphics.fillPolygon(box_polygon)
-  -- graphics.setColor(graphics.kColorBlack)
-  -- graphics.setLineWidth(3)
-  -- graphics.drawPolygon(box_polygon)
-  -- print(box:getVelocity())
-  -- ball:setBounds(box_polygon:getBoundsRect())  
-  
   graphics.setLineWidth(1)
-  graphics.setDitherPattern(0.5)
+  graphics.setDitherPattern(0.0)
 
   if selectedPlatformIndex > 0 then 
     local platform = platforms[selectedPlatformIndex]
     local platform_polygon = geometry.polygon.new(platform:getPolygon())
-    platform_polygon:close()
-    graphics.setDitherPattern(0.0)
     
     drawPlatform(platform_polygon, true)
   end
-  
-  -- Draw platforms
-  -- for i, platform in ipairs(platforms) do
-  --   local platform_polygon = geometry.polygon.new(platform:getPolygon())
-  --   platform_polygon:close()
-  --   graphics.setDitherPattern(0.5)
-  --   
-  --   drawPlatform(platform_polygon, i == selectedPlatformIndex)
-  -- end
-  
+    
   -- -- Draw swing joint
   -- graphics.setStrokeLocation(graphics.kStrokeCentered)
   -- local _, _, px1, py1, x2, y2, _, _ = swing_joint:getPoints()
