@@ -18,10 +18,10 @@ function playdate.update()
   if not game_setup then
     setup()
   end
-  
-  -- test 
-  
+    
   local dt <const> = 1.0 / playdate.display.getRefreshRate()
+  
+  checkToggleEditorMode() 
   
   if not inEditor then
     update(dt)  
@@ -60,7 +60,6 @@ local selected_box = 1
 
 local ball = nil
 
-local boltAnimPhase = 0.0
 local boltAnimTimer = nil
 
 local CAMERA_TRACK_BOUND_X <const> = 0.4
@@ -200,96 +199,54 @@ function setup()
   game_setup = true  
 end
 
-function updateInEditor(dt)  
+function checkToggleEditorMode() 
   if editorToggleButtonReleased and playdate.buttonIsPressed(playdate.kButtonA) and playdate.buttonIsPressed(playdate.kButtonB) then 
-    print("leave editor")
-    inEditor = false
+    inEditor = not inEditor
     editorToggleButtonReleased = false;
-    return
+    return true
   end   
  
   if not playdate.buttonIsPressed(playdate.kButtonA) or not playdate.buttonIsPressed(playdate.kButtonB) then 
     editorToggleButtonReleased = true
   end
   
+  return false
 end
 
-function update(dt)
-  if editorToggleButtonReleased and playdate.buttonIsPressed(playdate.kButtonA) and playdate.buttonIsPressed(playdate.kButtonB) then 
-    editorToggleButtonReleased = false
-    inEditor = true
-    print("Go to editor")
-    return
-  end 
+function updateInEditor(dt)  
   
-  if not playdate.buttonIsPressed(playdate.kButtonA) or not playdate.buttonIsPressed(playdate.kButtonB) then 
-    editorToggleButtonReleased = true
-  end
-  
-  playdate.timer.updateTimers()
+end
+
+function updateCrankPlatformControl() 
   local crankVal = playdate.getCrankChange()
   local crankValAbs = math.abs(crankVal)
   local crankValPerc = crankValAbs / 50.0
   local crankValClamped = math.min(crankValPerc, 1.0)
-  
-  if boltAnimPhase < 1.0 then
-    boltAnimPhase += 4.0*dt
-  elseif boltAnimPhase > 1.0 then
-    boltAnimPhase = 1.0
-  end
-  
+    
   local maxDegrees = 90.0
   
   local delta = playdate.math.lerp(0.0, maxDegrees, crankValClamped)
   if crankVal < 0.0 then
     delta *= -1.0
   end
+
+  local selectedBolt = platforms[selectedPlatformIndex]
+  selectedBolt:setTorque(selectedBolt:getTorque() + crankVal*10000.0)  
+end
+
+function jumpPlatform(direction)
+  selectedPlatformIndex -= direction  
   
-  if selectedPlatformIndex > 0 then
-    local selectedBolt = platforms[selectedPlatformIndex]
-    selectedBolt:setTorque(selectedBolt:getTorque() + crankVal*10000.0)
+  if selectedPlatformIndex < 1 then
+    selectedPlatformIndex = #platforms
+  elseif selectedPlatformIndex > #platforms then
+    selectedPlatformIndex = 1
   end
 
-  for i, platform in ipairs(platforms) do
-    platform:setTorque(platform:getTorque() * math.pow(0.2, dt))
-  end
+  boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic)
+end
 
-  world:update(dt)
-  
-  
-  if playdate.buttonJustPressed(playdate.kButtonB) then
-
-  end
-    
-  if playdate.buttonJustPressed(playdate.kButtonA) then
-  end
-  
-  if playdate.buttonJustPressed(playdate.kButtonLeft) then
-    --box:addForce(-300, 0)
-    --bolt:setRotation(bolt:getRotation() + 0.1)
-    
-    selectedPlatformIndex -= 1
-    if selectedPlatformIndex < 1 then
-      selectedPlatformIndex = #platforms
-    end
-   
-   boltAnimPhase = 0.0
-   boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic)
-
-  end
-  
-  if playdate.buttonJustPressed(playdate.kButtonRight) then
-    selectedPlatformIndex += 1
-    if selectedPlatformIndex > #platforms then
-      selectedPlatformIndex = 1
-    end
-    
-    boltAnimPhase = 0.0
-    boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic) 
-  end  
-  
-  -- Update camera
-  
+function updateCamera(dt) 
   local rightBoundX = currentCameraOffset.x + ((1.0 - CAMERA_TRACK_BOUND_X) * SCREEN_WIDTH)
   local leftBoundX = currentCameraOffset.x + (CAMERA_TRACK_BOUND_X * SCREEN_WIDTH)
   
@@ -305,19 +262,58 @@ function update(dt)
   --   currentCameraOffset.x = desiredCameraOffset.x
   end
   
-  currentCameraOffset.y = currentCameraOffset.y + (desiredCameraOffset.y - currentCameraOffset.y) * math.pow(1.0 - 0.5, dt)
+  currentCameraOffset.y = currentCameraOffset.y + (desiredCameraOffset.y - currentCameraOffset.y) * math.pow(1.0 - 0.5, dt)  
+end
 
+function update(dt)
+  
+  playdate.timer.updateTimers()
+
+  -- Update crank on selected platform
+  if selectedPlatformIndex > 0 then
+    updateCrankPlatformControl()
+  end
+
+  -- Update physics world
+  world:update(dt)
+  
+  -- Dampen torque
+  for i, platform in ipairs(platforms) do
+    platform:setTorque(platform:getTorque() * math.pow(0.2, dt))
+  end
+
+  -- Update ball rotation
+  local box_polygon = geometry.polygon.new(box:getPolygon())
+  box_polygon:close()
+  ball:setRotation(ball:getRotation() + box:getVelocity())
+  ball:moveTo(getPolyCenter(box_polygon))
+
+  
+  -- Input handling
+  if playdate.buttonJustPressed(playdate.kButtonB) then
+
+  end
+    
+  if playdate.buttonJustPressed(playdate.kButtonA) then
+  end
+  
+  if playdate.buttonJustPressed(playdate.kButtonLeft) then
+    --box:addForce(-300, 0)   
+   jumpPlatform(-1)
+  end
+  
+  if playdate.buttonJustPressed(playdate.kButtonRight) then
+    jumpPlatform(1)
+  end  
+  
+  -- Update camera
+  updateCamera(dt)
 end
 
 function draw()
   graphics.setDrawOffset(-currentCameraOffset.x, currentCameraOffset.y)
   graphics.clear(graphics.kColorWhite)
   graphics.setColor(graphics.kColorBlack)
-  
-  local box_polygon = geometry.polygon.new(box:getPolygon())
-  box_polygon:close()
-  ball:setRotation(ball:getRotation() + box:getVelocity())
-  ball:moveTo(getPolyCenter(box_polygon))
   
   -- graphics.setDitherPattern(0.25)
   -- graphics.fillPolygon(box_polygon)
@@ -327,7 +323,6 @@ function draw()
   -- print(box:getVelocity())
   -- ball:setBounds(box_polygon:getBoundsRect())  
   
-
   graphics.setLineWidth(1)
   graphics.setDitherPattern(0.5)
   
