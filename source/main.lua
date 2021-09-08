@@ -5,6 +5,8 @@ import "CoreLibs/easing"
 import "CoreLibs/timer"
 import "CoreLibs/sprites"
 import 'ball'
+import 'platform'
+import 'shared_funcs'
 
 local graphics <const> = playdate.graphics
 local geometry <const> = playdate.geometry
@@ -16,6 +18,7 @@ local editorToggleButtonReleased = false
 function playdate.update()
   if not game_setup then
     setup()
+    enterGameMode()
   end
     
   local dt <const> = 1.0 / playdate.display.getRefreshRate()
@@ -62,8 +65,6 @@ local selectedPlatformIndex = 0
 local box = nil
 local ball = nil
 
-local boltAnimTimer = nil
-
 -- Camera vars
 
 local CAMERA_TRACK_BOUND_X <const> = 0.25
@@ -76,7 +77,7 @@ local desiredCameraOffset = nil
 local currentCameraOffset = nil
 
 local cameraRecenterTimestamp = 0.0
-local CAMERA_RECENTER_TIME = 1.0
+local CAMERA_RECENTER_TIME <const> = 1.0
 local cameraNeedsRecenter = false
 local cameraTarget = nil
 
@@ -85,14 +86,6 @@ local cameraTarget = nil
 local cursor = nil
 local cursorMoveVel = 1.0
 local CURSOR_MAX_VEL <const> = 8.0
-
-local function deg2Rad(degrees)
-  return (degrees * 3.14 / 180.0)
-end
-
-local function rad2Deg(radians)
-  return (radians * 180.0 / 3.14)
-end
 
 local function createPlatform(x, y, width, height, rotation)
   rotation = rotation or 0.0
@@ -107,32 +100,10 @@ local function createPlatform(x, y, width, height, rotation)
   world:addBody(platform)
   platforms[#platforms + 1] = platform
   
-  local drawPoly = geometry.polygon.new(platform:getPolygon())
-  local x1 = drawPoly:getPointAt(1).x
-  local x2 = drawPoly:getPointAt(2).x 
-  local y1 = drawPoly:getPointAt(1).y 
-  local y2 = drawPoly:getPointAt(2).y
-  local x21 = drawPoly:getPointAt(3).x
-  local x22 = drawPoly:getPointAt(4).x 
-  local y21 = drawPoly:getPointAt(3).y 
-  local y22 = drawPoly:getPointAt(4).y
- 
-  width = geometry.lineSegment.new(x1,y1,x2,y2):length()
-  height = geometry.lineSegment.new(x2,y2,x21,y21):length()
-  center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
-   
-  
-  contextImg = playdate.graphics.image.new(width+1, height+1, graphics.kColorClear)
-  graphics.lockFocus(contextImg)
-  graphics.setColor(graphics.kColorBlack)
-  ninesliceImg:drawInRect(0, 0, width, height)
-  graphics.unlockFocus()
-
-  platformSprite = graphics.sprite.new(contextImg)
-  platformSprite:add()
-  platformSprite:moveTo(x,y)
-  platformSprite:setRotation(rotation)
-  platformSprites[#platformSprites + 1] = platformSprite
+  platformObj = Platform(width,height,platform,ninesliceImg)
+  platformObj:moveTo(x,y)
+  platformObj:setRotation(rotation)
+  platformSprites[#platformSprites + 1] = platformObj
 end
 
 local function createBall(x, y, width, height, mass)
@@ -140,42 +111,7 @@ local function createBall(x, y, width, height, mass)
   box:setCenter(x, y)
   box:setFriction(0.1)
   world:addBody(box)
-  
   ball = Ball()
-  ball:addSprite()
-end
-
-function getPolyCenter(poly)
-  local x1 = poly:getPointAt(1).x
-  local x2 = poly:getPointAt(2).x 
-  local y1 = poly:getPointAt(1).y 
-  local y2 = poly:getPointAt(2).y
-  local x21 = poly:getPointAt(3).x
-  local x22 = poly:getPointAt(4).x 
-  local y21 = poly:getPointAt(3).y 
-  local y22 = poly:getPointAt(4).y
-    
-  center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
-  return center
-end
-
-function drawPlatform(drawPoly, isSelected)
-  local x1 = drawPoly:getPointAt(1).x
-  local x2 = drawPoly:getPointAt(2).x 
-  local y1 = drawPoly:getPointAt(1).y 
-  local y2 = drawPoly:getPointAt(2).y
-  local x21 = drawPoly:getPointAt(3).x
-  local x22 = drawPoly:getPointAt(4).x 
-  local y21 = drawPoly:getPointAt(3).y 
-  local y22 = drawPoly:getPointAt(4).y
- 
-  width = geometry.lineSegment.new(x1,y1,x2,y2):length()
-  height = geometry.lineSegment.new(x2,y2,x21,y21):length()
-  center = getPolyCenter(drawPoly)
-   
-  if isSelected then
-    playdate.graphics.drawCircleAtPoint(center, playdate.math.lerp(0.0, math.min(height/2.0 - 2, 8), boltAnimTimer.value))
-  end
 end
 
 function loadLevelFromData(levelData)
@@ -228,10 +164,43 @@ function setup()
   game_setup = true  
 end
 
+function leaveGameMode() 
+  
+end
+
+function enterEditor() 
+  if not cursor then 
+    cursorImg = graphics.image.new("assets/pngs/general/Cursor")
+    cursor = graphics.sprite.new(cursorImg)
+    cursor:moveTo(currentCameraOffset.x + SCREEN_WIDTH/2.0, currentCameraOffset.y + SCREEN_HEIGHT/2)
+    cursor:add()
+    cameraTarget = cursor
+  end
+end
+
+function leaveEditor() 
+  if cursor then 
+    cursor:remove()
+    cursor = nil
+  end    
+end 
+
+function enterGameMode() 
+  cameraTarget = ball;
+end 
+
 function checkToggleEditorMode() 
   if editorToggleButtonReleased and playdate.buttonIsPressed(playdate.kButtonA) and playdate.buttonIsPressed(playdate.kButtonB) then 
     inEditor = not inEditor
     editorToggleButtonReleased = false;
+    
+    if inEditor then
+      leaveGameMode() 
+      enterEditor()
+    else
+      leaveEditor()
+      enterGameMode()
+    end 
     return true
   end   
  
@@ -242,18 +211,7 @@ function checkToggleEditorMode()
   return false
 end
 
-function updateInEditor(dt)  
-  if not cursor then 
-      cursorImg = graphics.image.new("assets/pngs/general/Cursor")
-      cursor = graphics.sprite.new(cursorImg)
-      cursor:moveTo(currentCameraOffset.x + SCREEN_WIDTH/2.0, currentCameraOffset.y + SCREEN_HEIGHT/2)
-      cursor:add()
-  end
-  
-  if cursor then 
-    cameraTarget = cursor
-  end
-  
+function updateInEditor(dt)    
   -- Input handling
   if playdate.buttonJustPressed(playdate.kButtonB) then
 
@@ -309,15 +267,22 @@ function updateCrankPlatformControl()
 end
 
 function jumpPlatform(direction)
+  if platformSprites[selectedPlatformIndex] then 
+    platformSprites[selectedPlatformIndex]:setSelected(false)
+  end 
+  
   selectedPlatformIndex -= direction  
   
   if selectedPlatformIndex < 1 then
-    selectedPlatformIndex = #platforms
-  elseif selectedPlatformIndex > #platforms then
+    selectedPlatformIndex = #platformSprites
+  elseif selectedPlatformIndex > #platformSprites then
     selectedPlatformIndex = 1
   end
+  
+  if platformSprites[selectedPlatformIndex] then 
+    platformSprites[selectedPlatformIndex]:setSelected(true)
+  end
 
-  boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic)
 end
 
 function updateCamera(dt)     
@@ -379,12 +344,6 @@ function updateCamera(dt)
 end
 
 function update(dt)
-  if cursor then 
-    cursor:remove()
-    cursor = nil
-  end
-  
-  cameraTarget = ball;
   
   playdate.timer.updateTimers()
 
@@ -397,17 +356,8 @@ function update(dt)
   world:update(dt)
   
   -- Update platforms
-  for i, platform in ipairs(platforms) do
-    platform:setTorque(platform:getTorque() * math.pow(0.2, dt))
-    
-    x,y = platform:getCenter()
-    platformSprites[i]:moveTo(x,y)
-
-    rotation = rad2Deg(platform:getRotation())
-    if platformSprites[i]:getRotation() ~= rotation then 
-      platformSprites[i]:setRotation(rotation)
-    end
-    
+  for i, platform in ipairs(platformSprites) do
+    platform:updatePhysics(dt)
   end
 
   -- Update ball rotation
@@ -440,14 +390,12 @@ function draw()
   graphics.setColor(graphics.kColorBlack)
   graphics.setLineWidth(1)
   graphics.setDitherPattern(0.0)
-
-  if selectedPlatformIndex > 0 then 
-    local platform = platforms[selectedPlatformIndex]
-    local platform_polygon = geometry.polygon.new(platform:getPolygon())
-    
-    drawPlatform(platform_polygon, true)
-  end
-    
+  
+  -- Draw platforms
+  for i, platform in ipairs(platformSprites) do
+    platform:draw()
+  end    
+  
   -- -- Draw swing joint
   -- graphics.setStrokeLocation(graphics.kStrokeCentered)
   -- local _, _, px1, py1, x2, y2, _, _ = swing_joint:getPoints()
