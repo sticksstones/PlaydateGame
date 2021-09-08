@@ -87,6 +87,9 @@ local cursor = nil
 local cursorMoveVel = 1.0
 local CURSOR_MAX_VEL <const> = 8.0
 local cursorTarget = nil
+local editorSelectedTarget = nil
+local editorAButtonTimestamp = 0.0
+local objectMoveMode = false
 
 local function createPlatform(x, y, width, height, rotation)
   rotation = rotation or 0.0
@@ -120,11 +123,27 @@ function loadLevelFromData(levelData)
   for i, platform in ipairs(platformData) do 
     createPlatform(platform["x"], platform["y"], platform["width"], platform["height"], platform["rotation"])  
   end
-  
 
   -- Create box
   playerData = levelData["player"]  
   createBall(playerData["x"], playerData["y"], playerData["width"], playerData["height"], playerData["mass"])
+end
+
+function writeLevelData() 
+  levelData["player"] = {x=0.6*SCREEN_WIDTH, y=0.0, width=16, height=16, mass=1.0}
+  levelData["platforms"] = {}
+  for i, platform in ipairs(platformSprites) do
+    platformBody = platform.platformBody
+    x,y = platformBody:getCenter()
+    width,height = platformBody:getSize()
+    levelData["platforms"][i] = {x=x, y=y, width=width, height=height, rotation=rad2Deg(platformBody:getRotation())}  
+  end 
+  -- levelData["platforms"][1] = {x=0.5*SCREEN_WIDTH,y=0.5*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=0.0}
+  -- levelData["platforms"][2] = {x=0.9*SCREEN_WIDTH,y=0.8*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=90.0}
+  -- levelData["platforms"][3] = {x=0.4*SCREEN_WIDTH,y=0.7*SCREEN_HEIGHT,width=100.0,height=16.0,rotation=0.0}
+  
+  playdate.datastore.write(levelData)  
+  
 end
 
 function initializeLevelData() 
@@ -181,6 +200,13 @@ function enterEditor()
 end
 
 function leaveEditor() 
+  writeLevelData()
+
+  if cursorTarget then   
+    cursorTarget:setHighlighted(false)
+    cursorTarget = nil
+  end
+
   if cursor then 
     cursor:remove()
     cursor = nil
@@ -237,25 +263,55 @@ function checkCursorTargeting()
 end
 
 function updateInEditor(dt)    
-  -- Input handling
-  if playdate.buttonJustPressed(playdate.kButtonB) then
-
-  end
-    
-  if playdate.buttonJustPressed(playdate.kButtonA) then
-  end
-
-  if not playdate.buttonIsPressed(playdate.kButtonLeft) and 
-     not playdate.buttonIsPressed(playdate.kButtonRight) and 
-     not playdate.buttonIsPressed(playdate.kButtonUp) and 
-     not playdate.buttonIsPressed(playdate.kButtonDown)
-     then 
-      cursorMoveVel = 1.0
-    else 
-      cursorMoveVel += dt * 5.0
-      cursorMoveVel = math.min(CURSOR_MAX_VEL, cursorMoveVel)
+  -- Update platforms
+  for i, platform in ipairs(platformSprites) do
+    platform:updatePhysics(0.0)
   end
   
+  -- Input handling
+  
+  -- Buttons
+  if playdate.buttonJustPressed(playdate.kButtonB) then
+    
+  end
+    
+  if playdate.buttonJustPressed(playdate.kButtonA) then    
+    if cursorTarget then 
+      editorSelectedTarget = cursorTarget
+      cursor:moveTo(cursorTarget:getPosition())
+      snapCameraToTarget()
+      editorAButtonTimestamp = playdate.getElapsedTime()
+    end 
+  end
+  
+  if playdate.buttonIsPressed(playdate.kButtonA) then 
+    if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
+      objectMoveMode = true
+    end   
+  end 
+  
+  if playdate.buttonJustReleased(playdate.kButtonA) then 
+    objectMoveMode = false
+    editorSelectedTarget = nil
+  end
+
+  -- Cursor movement
+  if not playdate.buttonIsPressed(playdate.kButtonLeft) and 
+   not playdate.buttonIsPressed(playdate.kButtonRight) and 
+   not playdate.buttonIsPressed(playdate.kButtonUp) and 
+   not playdate.buttonIsPressed(playdate.kButtonDown)
+   then 
+    cursorMoveVel = 1.0
+  else 
+    cursorMoveVel += dt * 5.0
+    cursorMoveVel = math.min(CURSOR_MAX_VEL, cursorMoveVel)
+  end
+  
+  if objectMoveMode then 
+    posX, posY = editorSelectedTarget.platformBody:getCenter()
+    editorSelectedTarget.platformBody:setCenter(cursor:getPosition())
+  end 
+    
   if playdate.buttonIsPressed(playdate.kButtonLeft) then
     cursor:moveBy(-cursorMoveVel, 0)
   end
@@ -272,7 +328,10 @@ function updateInEditor(dt)
     cursor:moveBy(0, -cursorMoveVel)
   end  
   
-  checkCursorTargeting()
+  if not objectMoveMode then 
+    checkCursorTargeting()
+  end
+  -- end 
   
 end
 
@@ -311,6 +370,13 @@ function jumpPlatform(direction)
   end
 
 end
+
+function snapCameraToTarget() 
+  -- currentCameraOffset.x = desiredCameraOffset.x 
+  -- currentCameraOffset.y = desiredCameraOffset.y
+  cameraNeedsRecenter = true
+  cameraRecenterTimestamp = playdate.getElapsedTime()
+end 
 
 function updateCamera(dt)     
   if cameraTarget then     
