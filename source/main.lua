@@ -86,6 +86,7 @@ local cameraTarget = nil
 local cursor = nil
 local cursorMoveVel = 1.0
 local CURSOR_MAX_VEL <const> = 8.0
+local cursorTarget = nil
 
 local function createPlatform(x, y, width, height, rotation)
   rotation = rotation or 0.0
@@ -172,6 +173,7 @@ function enterEditor()
   if not cursor then 
     cursorImg = graphics.image.new("assets/pngs/general/Cursor")
     cursor = graphics.sprite.new(cursorImg)
+    cursor:setCollideRect(0,0,cursor:getSize())
     cursor:moveTo(currentCameraOffset.x + SCREEN_WIDTH/2.0, currentCameraOffset.y + SCREEN_HEIGHT/2)
     cursor:add()
     cameraTarget = cursor
@@ -211,6 +213,29 @@ function checkToggleEditorMode()
   return false
 end
 
+function checkCursorTargeting() 
+  overlappingSprites = cursor:overlappingSprites()
+  
+  newCursorTarget = nil
+  
+  if #overlappingSprites > 0 then 
+    newCursorTarget = overlappingSprites[1]          
+  end 
+  
+  if cursorTarget ~= newCursorTarget then 
+    if cursorTarget then 
+      cursorTarget:setHighlighted(false)
+    end
+    
+    cursorTarget = newCursorTarget
+    
+    if cursorTarget then 
+      cursorTarget:setHighlighted(true)
+    end
+  end 
+  
+end
+
 function updateInEditor(dt)    
   -- Input handling
   if playdate.buttonJustPressed(playdate.kButtonB) then
@@ -246,6 +271,8 @@ function updateInEditor(dt)
   if playdate.buttonIsPressed(playdate.kButtonUp) then
     cursor:moveBy(0, -cursorMoveVel)
   end  
+  
+  checkCursorTargeting()
   
 end
 

@@ -9,6 +9,7 @@ class('Platform').extends(playdate.graphics.sprite)
 
 function Platform:init(width,height,body,ninesliceImg)	
 	self.selected = false
+	self.highlighted = false
 	self.boltAnimTimer = nil
 	
 	Platform.super.init(self)
@@ -35,7 +36,7 @@ function Platform:init(width,height,body,ninesliceImg)
   	ninesliceImg:drawInRect(0, 0, self.width, self.height)
   	playdate.graphics.unlockFocus()
 	
-  	self:setImage(contextImg) 
+  	self:setImage(contextImg)   
   	self:add()
 end
 
@@ -49,6 +50,9 @@ function Platform:updatePhysics(dt)
 	if self:getRotation() ~= rotation then 
   		self:setRotation(rotation)
 	end
+	
+	boundsRect = self:getBoundsRect()
+	self:setCollideRect(0,0,boundsRect.width, boundsRect.height)	
 	
 end
 
@@ -70,7 +74,23 @@ function Platform:draw()
 	if self.selected then 
 		playdate.graphics.drawCircleAtPoint(self.center, playdate.math.lerp(0.0, math.min(self.height/2.0 - 2, 8), self.boltAnimTimer.value))	
 	end 	
+	
+	if self.highlighted then 
+		if math.fmod(playdate.getElapsedTime(), 1.0) > 0.5 then 
+			self:setVisible(false)	
+		else 
+			self:setVisible(true)	
+		end
+	else 
+		self:setVisible(true)
+	end 
 end 
+
+
+
+function Platform:setHighlighted(flag)
+	self.highlighted = flag
+end
 
 function Platform:setSelected(flag)
 	self.boltAnimTimer = playdate.timer.new(500, 0.0, 1.0, playdate.easingFunctions.outElastic)
