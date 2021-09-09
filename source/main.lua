@@ -83,6 +83,7 @@ local cameraTarget = nil
 
 
 -- Editor vars
+local editorToggleButtonReleaseRequired = false
 local cursor = nil
 local cursorMoveVel = 1.0
 local CURSOR_MAX_VEL <const> = 8.0
@@ -118,7 +119,7 @@ local function createBall(x, y, width, height, mass)
   box:setCenter(x, y)
   box:setFriction(0.1)
   world:addBody(box)
-  ball = Ball()
+  ball = Ball(box)
 end
 
 function loadLevelFromData(levelData)
@@ -141,12 +142,8 @@ function writeLevelData()
     width,height = platformBody:getSize()
     levelData["platforms"][i] = {x=x, y=y, width=width, height=height, rotation=rad2Deg(platformBody:getRotation())}  
   end 
-  -- levelData["platforms"][1] = {x=0.5*SCREEN_WIDTH,y=0.5*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=0.0}
-  -- levelData["platforms"][2] = {x=0.9*SCREEN_WIDTH,y=0.8*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=90.0}
-  -- levelData["platforms"][3] = {x=0.4*SCREEN_WIDTH,y=0.7*SCREEN_HEIGHT,width=100.0,height=16.0,rotation=0.0}
   
-  playdate.datastore.write(levelData)  
-  
+  playdate.datastore.write(levelData)    
 end
 
 function initializeLevelData() 
@@ -200,6 +197,20 @@ function enterEditor()
     cursor:add()
     cameraTarget = cursor
   end
+  
+  for i,platform in ipairs(platformSprites) do
+    platforms[i]:setRotation(deg2Rad(platform.originalRotation))
+  end 
+  
+  ball.physObj:setCenter(ball.originalPosX, ball.originalPosY)
+  ball.physObj:setRotation(ball.originalRotation)
+  ball.physObj:setForce(0.0,0.0)
+  ball.physObj:setVelocity(0.0,0.0)
+  ball.physObj:setAngularVelocity(0.0)
+  
+  prevEditorMode = "base"
+  changeEditorMode("base")
+  editorToggleButtonReleaseRequired = true
 end
 
 function leaveEditor() 
@@ -207,6 +218,7 @@ function leaveEditor()
 
   if cursorTarget then   
     cursorTarget:setHighlighted(false)
+    cursorTarget:setEditorSelected(false)
     cursorTarget = nil
   end
 
@@ -278,12 +290,22 @@ function editorLeaveManipulateMode()
 end 
 
 function updateInEditor(dt)    
+  
   -- Update platforms
   for i, platform in ipairs(platformSprites) do
     platform:updatePhysics(0.0)
   end
   
+  updateBall()
+  
   -- Input handling
+  if editorToggleButtonReleaseRequired and not playdate.buttonIsPressed(playdate.kButtonA) and not playdate.buttonIsPressed(playdate.kButtonB) then 
+    editorToggleButtonReleaseRequired = false
+  end
+
+  if editorToggleButtonReleaseRequired then 
+    return 
+  end 
   
   -- Buttons
   if playdate.buttonJustPressed(playdate.kButtonB) then
@@ -338,7 +360,9 @@ function updateInEditor(dt)
     local crankVal = playdate.getCrankChange()
     if manipulateType == "rotation" then 
       currentRotation = editorSelectedTarget.platformBody:getRotation()
-      editorSelectedTarget.platformBody:setRotation(currentRotation + deg2Rad(crankVal))
+      newRotation = currentRotation + deg2Rad(crankVal)
+      editorSelectedTarget.platformBody:setRotation(newRotation)
+      editorSelectedTarget.originalRotation = rad2Deg(newRotation)
     elseif manipulateType == "scaleHorizontal" then 
       x,y = editorSelectedTarget.platformBody:getSize()
       editorSelectedTarget.platformBody:setSize(math.max(x + crankVal, 16.0), y)
@@ -490,6 +514,13 @@ function updateCamera(dt)
   end
 end
 
+function updateBall() 
+  local box_polygon = geometry.polygon.new(box:getPolygon())
+  box_polygon:close()
+  ball:setRotation(ball:getRotation() + box:getVelocity())
+  ball:moveTo(getPolyCenter(box_polygon))
+end 
+
 function update(dt)
   
   playdate.timer.updateTimers()
@@ -508,10 +539,7 @@ function update(dt)
   end
 
   -- Update ball rotation
-  local box_polygon = geometry.polygon.new(box:getPolygon())
-  box_polygon:close()
-  ball:setRotation(ball:getRotation() + box:getVelocity())
-  ball:moveTo(getPolyCenter(box_polygon))
+  updateBall()
   
   -- Input handling
   if playdate.buttonJustPressed(playdate.kButtonB) then
