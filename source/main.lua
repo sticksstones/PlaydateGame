@@ -89,7 +89,10 @@ local CURSOR_MAX_VEL <const> = 8.0
 local cursorTarget = nil
 local editorSelectedTarget = nil
 local editorAButtonTimestamp = 0.0
-local objectMoveMode = false
+
+local editorMode = "base"
+local prevEditorMode = "base"
+local manipulateType = ""
 
 local function createPlatform(x, y, width, height, rotation)
   rotation = rotation or 0.0
@@ -259,8 +262,20 @@ function checkCursorTargeting()
       cursorTarget:setHighlighted(true)
     end
   end 
-  
 end
+
+function changeEditorMode(newMode) 
+  prevEditorMode = editorMode
+  editorMode = newMode
+  
+  if prevEditorMode == "manipulate" then 
+    editorLeaveManipulateMode()
+  end 
+end 
+
+function editorLeaveManipulateMode() 
+  editorSelectedTarget:setEditorSelected(false)  
+end 
 
 function updateInEditor(dt)    
   -- Update platforms
@@ -274,6 +289,12 @@ function updateInEditor(dt)
   if playdate.buttonJustPressed(playdate.kButtonB) then
     
   end
+  
+  if playdate.buttonJustReleased(playdate.kButtonB) then 
+    if editorSelectedTarget then 
+      changeEditorMode("base")
+    end 
+  end 
     
   if playdate.buttonJustPressed(playdate.kButtonA) then    
     if cursorTarget then 
@@ -286,53 +307,86 @@ function updateInEditor(dt)
   
   if playdate.buttonIsPressed(playdate.kButtonA) then 
     if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
-      objectMoveMode = true
+      changeEditorMode("move")
     end   
   end 
   
-  if playdate.buttonJustReleased(playdate.kButtonA) then 
-    objectMoveMode = false
-    editorSelectedTarget = nil
+  if playdate.buttonJustReleased(playdate.kButtonA) then
+    if editorMode == "manipulate" then 
+      changeEditorMode("base")
+    elseif cursorTarget and editorSelectedTarget and playdate.getElapsedTime() < editorAButtonTimestamp + 0.5 then 
+      changeEditorMode("manipulate")
+      editorSelectedTarget:setEditorSelected(true)  
+    elseif editorMode == "move" and prevEditorMode == "manipulate" then 
+        changeEditorMode("manipulate")
+    else
+      changeEditorMode("base")
+      editorSelectedTarget = nil
+    end
   end
 
   -- Cursor movement
+  if editorMode == "manipulate" then 
+    if playdate.buttonIsPressed(playdate.kButtonUp) then 
+      manipulateType = "scaleVertical"
+    elseif playdate.buttonIsPressed(playdate.kButtonRight) then 
+      manipulateType = "scaleHorizontal"
+    elseif playdate.buttonIsPressed(playdate.kButtonDown) then 
+      manipulateType = "rotation"
+    end 
+    
+    local crankVal = playdate.getCrankChange()
+    if manipulateType == "rotation" then 
+      currentRotation = editorSelectedTarget.platformBody:getRotation()
+      editorSelectedTarget.platformBody:setRotation(currentRotation + deg2Rad(crankVal))
+    elseif manipulateType == "scaleHorizontal" then 
+      x,y = editorSelectedTarget.platformBody:getSize()
+      editorSelectedTarget.platformBody:setSize(math.max(x + crankVal, 16.0), y)
+    elseif manipulateType == "scaleVertical" then 
+      x,y = editorSelectedTarget.platformBody:getSize()
+      editorSelectedTarget.platformBody:setSize(x, math.max(y + crankVal, 16.0))
+    end 
+
+  end
+  
   if not playdate.buttonIsPressed(playdate.kButtonLeft) and 
    not playdate.buttonIsPressed(playdate.kButtonRight) and 
    not playdate.buttonIsPressed(playdate.kButtonUp) and 
    not playdate.buttonIsPressed(playdate.kButtonDown)
    then 
+    manipulateType = "" 
     cursorMoveVel = 1.0
   else 
     cursorMoveVel += dt * 5.0
     cursorMoveVel = math.min(CURSOR_MAX_VEL, cursorMoveVel)
   end
   
-  if objectMoveMode then 
+  if editorMode == "move" then 
     posX, posY = editorSelectedTarget.platformBody:getCenter()
     editorSelectedTarget.platformBody:setCenter(cursor:getPosition())
   end 
     
-  if playdate.buttonIsPressed(playdate.kButtonLeft) then
-    cursor:moveBy(-cursorMoveVel, 0)
+  if editorMode ~= "manipulate" then 
+    if playdate.buttonIsPressed(playdate.kButtonLeft) then
+      cursor:moveBy(-cursorMoveVel, 0)
+    end
+    
+    if playdate.buttonIsPressed(playdate.kButtonRight) then
+      cursor:moveBy(cursorMoveVel, 0)
+    end  
+  
+    if playdate.buttonIsPressed(playdate.kButtonDown) then
+      cursor:moveBy(0, cursorMoveVel)
+    end  
+    
+    if playdate.buttonIsPressed(playdate.kButtonUp) then
+      cursor:moveBy(0, -cursorMoveVel)
+    end  
   end
   
-  if playdate.buttonIsPressed(playdate.kButtonRight) then
-    cursor:moveBy(cursorMoveVel, 0)
-  end  
-
-  if playdate.buttonIsPressed(playdate.kButtonDown) then
-    cursor:moveBy(0, cursorMoveVel)
-  end  
-  
-  if playdate.buttonIsPressed(playdate.kButtonUp) then
-    cursor:moveBy(0, -cursorMoveVel)
-  end  
-  
-  if not objectMoveMode then 
+  if editorMode == "base" then 
     checkCursorTargeting()
-  end
-  -- end 
-  
+  end  
 end
 
 function updateCrankPlatformControl() 
