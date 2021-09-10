@@ -43,6 +43,7 @@ function Platform:init(width,height,body,ninesliceImg)
 	Platform.super.init(self)
 	self.platformBody = body
 	self.originalRotation = rad2Deg(body:getRotation())
+	-- self:setZIndex(2)
 	self:updateImage()
   	self:add()
 end

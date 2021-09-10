@@ -95,6 +95,10 @@ local editorMode = "base"
 local prevEditorMode = "base"
 local manipulateType = ""
 
+-- BG vars
+local bgTilemap = nil
+local bgImage = nil
+
 local function createPlatform(x, y, width, height, rotation)
   rotation = rotation or 0.0
   local platform = playbox.body.new(width, height, 10000)
@@ -181,6 +185,25 @@ function setup()
   levelData = playdate.datastore.read()
   loadLevelFromData(levelData)
   
+  imageTable = playdate.graphics.imagetable.new("assets/pngs/tilemaps/tilemap")
+  bgTilemap = playdate.graphics.tilemap.new()
+  bgTilemap:setImageTable(imageTable)
+  data = {} 
+  tilesWidth = (SCREEN_WIDTH/16*8)
+  tilesHeight = (SCREEN_HEIGHT/16*4)
+  for i=1,tilesWidth*tilesHeight do
+    data[i] = 1
+  end
+  
+  bgTilemap:setTiles(data, tilesWidth)
+  
+  bgImage = playdate.graphics.image.new(tilesWidth*16, tilesHeight*16, playdate.graphics.kColorClear)
+  playdate.graphics.lockFocus(bgImage)
+  playdate.graphics.setColor(playdate.graphics.kColorBlack)
+  bgTilemap:draw(0,0)
+  playdate.graphics.unlockFocus()
+  bgImage = bgImage:fadedImage(0.6,playdate.graphics.image.kDitherTypeScreen)
+  
   game_setup = true  
 end
 
@@ -193,6 +216,7 @@ function enterEditor()
     cursorImg = graphics.image.new("assets/pngs/general/Cursor")
     cursor = graphics.sprite.new(cursorImg)
     cursor:setCollideRect(0,0,cursor:getSize())
+    cursor:setZIndex(1000)
     cursor:moveTo(currentCameraOffset.x + SCREEN_WIDTH/2.0, currentCameraOffset.y + SCREEN_HEIGHT/2)
     cursor:add()
     cameraTarget = cursor
@@ -562,10 +586,12 @@ end
 function draw()
   graphics.setDrawOffset(-currentCameraOffset.x, -currentCameraOffset.y)
   graphics.clear(graphics.kColorWhite)
-  graphics.setColor(graphics.kColorBlack)
-  graphics.setLineWidth(1)
-  graphics.setDitherPattern(0.0)
+  graphics.setColor(graphics.kColorWhite)
+  -- graphics.setLineWidth(1)
+  -- graphics.setDitherPattern(0.0)
   
+  -- bgTilemap:draw(0,0)
+  bgImage:draw(0,0)
   -- Draw platforms
   for i, platform in ipairs(platformSprites) do
     platform:draw()
