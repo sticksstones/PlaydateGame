@@ -43,7 +43,7 @@ function Platform:init(width,height,body,ninesliceImg)
 	Platform.super.init(self)
 	self.platformBody = body
 	self.originalRotation = rad2Deg(body:getRotation())
-	-- self:setZIndex(2)
+	self:setZIndex(0)
 	self:updateImage()
   	self:add()
 end
@@ -85,10 +85,6 @@ function Platform:draw()
   	self.height = playdate.geometry.lineSegment.new(x2,y2,x21,y21):length()
   	self.center = playdate.geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)	
 	
-	if self.selected then 
-		playdate.graphics.drawCircleAtPoint(self.center, playdate.math.lerp(0.0, math.min(self.height/2.0 - 2, 8), self.boltAnimTimer.value))	
-	end 	
-	
 	if self.editorSelected then 
 		if math.fmod(playdate.getElapsedTime(), 0.5) > 0.25 then 
 			self:setVisible(false)	
@@ -104,6 +100,12 @@ function Platform:draw()
 	else 
 		self:setVisible(true)
 	end 
+	
+	if self.selected then 
+		playdate.graphics.setColor(playdate.graphics.kColorBlack)
+		playdate.graphics.drawCircleAtPoint(self.center, playdate.math.lerp(0.0, math.max(math.min(self.height/2.0 - 2, 8),4), self.boltAnimTimer.value))	
+	end 	
+	
 end 
 
 

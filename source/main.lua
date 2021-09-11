@@ -39,6 +39,9 @@ function playdate.update()
   end
 
   playdate.graphics.sprite.update()    
+
+  postSpriteDraw()  
+
 end
 
 function playdate.keyPressed(key)
@@ -590,12 +593,7 @@ function draw()
   -- graphics.setLineWidth(1)
   -- graphics.setDitherPattern(0.0)
   
-  -- bgTilemap:draw(0,0)
   bgImage:draw(0,0)
-  -- Draw platforms
-  for i, platform in ipairs(platformSprites) do
-    platform:draw()
-  end    
   
   -- -- Draw swing joint
   -- graphics.setStrokeLocation(graphics.kStrokeCentered)
@@ -609,6 +607,13 @@ function draw()
   end  
 end
 
+function postSpriteDraw() 
+  -- Draw platforms
+  for i, platform in ipairs(platformSprites) do
+    platform:draw()
+  end    
+end
+
 function drawInEditor() 
-  
+
 end
