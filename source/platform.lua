@@ -4,10 +4,13 @@ import "CoreLibs/timer"
 import "CoreLibs/math"
 import 'shared_funcs'
 
+local graphics <const> = playdate.graphics
+local geometry <const> = playdate.geometry
+
 class('Platform').extends(playdate.graphics.sprite)
 
 function Platform:updateImage() 
-  drawPoly = playdate.geometry.polygon.new(self.platformBody:getPolygon())
+  drawPoly = geometry.polygon.new(self.platformBody:getPolygon())
   x1 = drawPoly:getPointAt(1).x
   x2 = drawPoly:getPointAt(2).x 
   y1 = drawPoly:getPointAt(1).y 
@@ -18,19 +21,18 @@ function Platform:updateImage()
   y22 = drawPoly:getPointAt(4).y
  
 
-  self.width = playdate.geometry.lineSegment.new(x1,y1,x2,y2):length()
-  self.height = playdate.geometry.lineSegment.new(x2,y2,x21,y21):length()
-  self.center = playdate.geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
+  self.width = geometry.lineSegment.new(x1,y1,x2,y2):length()
+  self.height = geometry.lineSegment.new(x2,y2,x21,y21):length()
+  self.center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
 
   self.rectWidth, self.rectHeight = self.platformBody:getSize()
-  contextImg = playdate.graphics.image.new(self.rectWidth+1, self.rectHeight+1, playdate.graphics.kColorClear)
-  playdate.graphics.lockFocus(contextImg)
-  playdate.graphics.setColor(playdate.graphics.kColorBlack)
+  contextImg = graphics.image.new(self.rectWidth+1, self.rectHeight+1, playdate.graphics.kColorClear)
+  graphics.lockFocus(contextImg)
+  graphics.setColor(graphics.kColorBlack)
   self.ninesliceImgRef:drawInRect(0, 0, self.width, self.height)
-  playdate.graphics.unlockFocus()
+  graphics.unlockFocus()
 
-  self:setImage(contextImg)   
-	
+  self:setImage(contextImg)   	
 end 
 
 function Platform:init(width,height,body,ninesliceImg)	
@@ -49,12 +51,6 @@ function Platform:init(width,height,body,ninesliceImg)
 end
 
 function Platform:updatePhysics(dt) 
-	currentRectWidth, currentRectHeight = self.platformBody:getCenter()
-	
-	if self.rectWidth ~= currentRectWidth or self.currentRectHeight ~= currentRectHeight then 
-		self:updateImage()
-	end 
-
 	self.platformBody:setTorque(self.platformBody:getTorque() * math.pow(0.2, dt))
 	
 	x,y = self.platformBody:getCenter()
@@ -71,7 +67,13 @@ function Platform:updatePhysics(dt)
 end
 
 function Platform:draw() 
-	drawPoly = playdate.geometry.polygon.new(self.platformBody:getPolygon())
+	currentRectWidth, currentRectHeight = self.platformBody:getCenter()
+	
+	if self.rectWidth ~= currentRectWidth or self.currentRectHeight ~= currentRectHeight then 
+		self:updateImage()
+	end 
+	
+	drawPoly = geometry.polygon.new(self.platformBody:getPolygon())
   	x1 = drawPoly:getPointAt(1).x
   	x2 = drawPoly:getPointAt(2).x 
   	y1 = drawPoly:getPointAt(1).y 
@@ -81,9 +83,9 @@ function Platform:draw()
   	y21 = drawPoly:getPointAt(3).y 
   	y22 = drawPoly:getPointAt(4).y
  	
-  	self.width = playdate.geometry.lineSegment.new(x1,y1,x2,y2):length()
-  	self.height = playdate.geometry.lineSegment.new(x2,y2,x21,y21):length()
-  	self.center = playdate.geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)	
+  	self.width = geometry.lineSegment.new(x1,y1,x2,y2):length()
+  	self.height = geometry.lineSegment.new(x2,y2,x21,y21):length()
+  	self.center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)	
 	
 	if self.editorSelected then 
 		if math.fmod(playdate.getElapsedTime(), 0.5) > 0.25 then 
@@ -102,8 +104,8 @@ function Platform:draw()
 	end 
 	
 	if self.selected then 
-		playdate.graphics.setColor(playdate.graphics.kColorBlack)
-		playdate.graphics.drawCircleAtPoint(self.center, playdate.math.lerp(0.0, math.max(math.min(self.height/2.0 - 2, 8),4), self.boltAnimTimer.value))	
+		graphics.setColor(graphics.kColorBlack)
+		graphics.drawCircleAtPoint(self.center, playdate.math.lerp(0.0, math.max(math.min(self.height/2.0 - 2, 8),4), self.boltAnimTimer.value))	
 	end 	
 	
 end 

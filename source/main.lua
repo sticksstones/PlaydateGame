@@ -6,6 +6,7 @@ import "CoreLibs/timer"
 import "CoreLibs/sprites"
 import 'ball'
 import 'platform'
+import 'editorMenu'
 import 'shared_funcs'
 
 local graphics <const> = playdate.graphics
@@ -33,14 +34,14 @@ function playdate.update()
   
   updateCamera(dt)  
   draw()
-  
-  if inEditor then 
-    drawInEditor()
-  end
 
   playdate.graphics.sprite.update()    
 
   postSpriteDraw()  
+
+  if inEditor then 
+    drawInEditor()
+  end
 
 end
 
@@ -86,6 +87,7 @@ local cameraTarget = nil
 
 
 -- Editor vars
+local editorMenuRef = nil
 local editorToggleButtonReleaseRequired = false
 local cursor = nil
 local cursorMoveVel = 1.0
@@ -215,6 +217,10 @@ function leaveGameMode()
 end
 
 function enterEditor() 
+  if not editorMenuRef then 
+    editorMenuRef = EditorMenu()
+  end 
+  
   if not cursor then 
     cursorImg = graphics.image.new("assets/pngs/general/Cursor")
     cursor = graphics.sprite.new(cursorImg)
@@ -253,6 +259,12 @@ function leaveEditor()
     cursor:remove()
     cursor = nil
   end    
+  
+  if editorMenuRef then 
+    editorMenuRef:kill() 
+    editorMenuRef = nil
+  end 
+
 end 
 
 function enterGameMode() 
@@ -336,7 +348,9 @@ function updateInEditor(dt)
   
   -- Buttons
   if playdate.buttonJustPressed(playdate.kButtonB) then
-    
+    if editorMode == "base" then 
+      changeEditorMode("menu")
+    end 
   end
   
   if playdate.buttonJustReleased(playdate.kButtonB) then 
@@ -615,5 +629,7 @@ function postSpriteDraw()
 end
 
 function drawInEditor() 
-
+  if editorMode == "menu" then 
+      editorMenuRef:draw()
+  end
 end
