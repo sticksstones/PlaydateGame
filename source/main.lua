@@ -121,12 +121,17 @@ local function createPlatform(x, y, width, height, rotation)
   platformObj:moveTo(x,y)
   platformObj:setRotation(rotation)
   platformSprites[#platformSprites + 1] = platformObj
+  return platformObj
 end
 
 function editorCreatePlatform()
   local x,y = cursor:getPosition()
-  createPlatform(x, y, 20, 20, 0.0)
-  changeEditorMode("base")
+  local platform = createPlatform(x, y, 20, 20, 0.0)
+  editorSelectedTarget = platform
+  cursor:moveTo(editorSelectedTarget:getPosition())
+  snapCameraToTarget()
+
+  changeEditorMode("manipulate")
 end 
 
 function editorCloseMenu() 
@@ -223,10 +228,15 @@ function setup()
 end
 
 function leaveGameMode() 
-  
+  if platformSprites[selectedPlatformIndex] then 
+    platformSprites[selectedPlatformIndex]:setSelected(false)
+  end
+  selectedPlatformIndex = -1
+  selectedBolt = nil  
 end
 
 function enterEditor() 
+  
   editorToggleButtonReleaseRequired = true  
   
   if not editorMenuRef then 
@@ -327,6 +337,18 @@ function checkCursorTargeting()
   end 
 end
 
+function deleteCursorTarget() 
+  for i=1,#platformSprites do 
+    if platformSprites[i] == cursorTarget then 
+      world:removeBody(platforms[i])
+      platformSprites[i]:remove()
+      table.remove(platformSprites,i)
+      table.remove(platforms,i)
+      return
+    end 
+  end 
+end 
+
 function changeEditorMode(newMode) 
   prevEditorMode = editorMode
   editorMode = newMode
@@ -410,6 +432,7 @@ function updateInEditor(dt)
     -- B
     if playdate.buttonJustReleased(playdate.kButtonB) then 
       if cursorTarget then 
+        deleteCursorTarget()
       else 
         changeEditorMode("menu")      
       end
@@ -439,7 +462,7 @@ function updateInEditor(dt)
     end 
     
     -- B 
-    if playdate.buttonJustPressed(playdate.kButtonB) then
+    if playdate.buttonJustReleased(playdate.kButtonB) then
       changeEditorMode("base")      
     end 
 
