@@ -19,12 +19,17 @@ local MENU_WIDTH <const> = 120
 local opened = false
 local slideTimer = nil
 local listview = nil
-local menuOptions = {"Platform", "Ball"}
+local menuOptions = 
+{
+	{name="Platform"}, 
+	{name="Wall"}, 
+	{name="Ball"}
+}
+local mainScriptRef = nil
 
 
-function EditorMenu:init()	
-	local listFont = graphics.font.new('assets/Bitmore-Medieval')
-	listFont:setTracking(1)
+function EditorMenu:init(mainScript)
+	self.mainScriptRef = mainScript	
 
 	self.listview = playdate.ui.gridview.new(0, 40)
 	self.listview:setNumberOfRows(#menuOptions)
@@ -44,18 +49,31 @@ function EditorMenu:init()
 				-- graphics.setImageDrawMode(graphics.kDrawModeWhiteTransparent)
 				-- graphics.setImageDrawMode(graphics.kDrawModeCopy)
 		end
-		graphics.setFont(listFont)
-		graphics.drawTextInRect(menuOptions[row], x, y+(height/2 - 4), width, height, nil, "...", kTextAlignment.center)
+		graphics.drawTextInRect(menuOptions[row].name, x, y+(height/2 - 4), width, height, nil, "...", kTextAlignment.center)
 	end
-
 end
+
+function EditorMenu:selectOption(item) 
+	name = item.name
+	
+	if name == "Platform" then 
+		editorCreatePlatform()
+	end 
+end 
 
 function EditorMenu:update()
 	if self.opened then 
+		-- Cursor movement
 		if playdate.buttonJustPressed(playdate.kButtonUp) then 
 			self.listview:selectPreviousRow(true)
 		elseif playdate.buttonJustPressed(playdate.kButtonDown) then 
 			self.listview:selectNextRow(true)
+		end 
+		
+		-- Buttons
+		if playdate.buttonJustPressed(playdate.kButtonA) then 
+			self:selectOption(menuOptions[self.listview:getSelectedRow()])
+			
 		end 
 	end 
 end

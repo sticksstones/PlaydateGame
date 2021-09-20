@@ -123,6 +123,16 @@ local function createPlatform(x, y, width, height, rotation)
   platformSprites[#platformSprites + 1] = platformObj
 end
 
+function editorCreatePlatform()
+  local x,y = cursor:getPosition()
+  createPlatform(x, y, 20, 20, 0.0)
+  changeEditorMode("base")
+end 
+
+function editorCloseMenu() 
+  changeEditorMode("base")
+end 
+
 local function createBall(x, y, width, height, mass)
   box = playbox.body.new(width, height, mass)
   box:setCenter(x, y)
@@ -217,8 +227,10 @@ function leaveGameMode()
 end
 
 function enterEditor() 
+  editorToggleButtonReleaseRequired = true  
+  
   if not editorMenuRef then 
-    editorMenuRef = EditorMenu()
+    editorMenuRef = EditorMenu(self)
   end 
   
   if not cursor then 
@@ -243,7 +255,7 @@ function enterEditor()
   
   prevEditorMode = "base"
   changeEditorMode("base")
-  editorToggleButtonReleaseRequired = true
+
 end
 
 function leaveEditor() 
@@ -347,8 +359,14 @@ function updateInEditor(dt)
   updateBall()
   
   -- Input handling
-  if editorToggleButtonReleaseRequired and not playdate.buttonIsPressed(playdate.kButtonA) and not playdate.buttonIsPressed(playdate.kButtonB) then 
+  if editorToggleButtonReleaseRequired
+     and not (playdate.buttonIsPressed(playdate.kButtonA) 
+          or playdate.buttonJustPressed(playdate.kButtonA)) 
+     and not (playdate.buttonIsPressed(playdate.kButtonB)
+          or playdate.buttonJustPressed(playdate.kButtonB))
+     then 
     editorToggleButtonReleaseRequired = false
+    return
   end
 
   if editorToggleButtonReleaseRequired then 
@@ -356,11 +374,14 @@ function updateInEditor(dt)
   end 
   
   -- Buttons
+  if playdate.buttonJustPressed(playdate.kButtonA) then
+    editorAButtonTimestamp = playdate.getElapsedTime()
+  end
   
   -- MENU
   if editorMode == "menu" then 
     -- B
-    if playdate.buttonJustPressed(playdate.kButtonB) then
+    if playdate.buttonJustReleased(playdate.kButtonB) then
       changeEditorMode("base")
     end  
     
@@ -372,36 +393,56 @@ function updateInEditor(dt)
         editorSelectedTarget = cursorTarget
         cursor:moveTo(cursorTarget:getPosition())
         snapCameraToTarget()
-        editorAButtonTimestamp = playdate.getElapsedTime()
       end 
-    end
-
-    if playdate.buttonIsPressed(playdate.kButtonA) then 
-      if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
-        changeEditorMode("move")
-      end   
-    end 
-
-    if playdate.buttonJustReleased(playdate.kButtonA) then     
+    elseif playdate.buttonJustReleased(playdate.kButtonA) then     
       if cursorTarget and editorSelectedTarget and playdate.getElapsedTime() < editorAButtonTimestamp + 0.5 then 
         changeEditorMode("manipulate")
         editorSelectedTarget:setEditorSelected(true)  
       elseif prevEditorMode == "manipulate" then 
           changeEditorMode("manipulate")
       end 
+    elseif playdate.buttonIsPressed(playdate.kButtonA) then 
+      if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
+        changeEditorMode("move")
+      end   
     end
 
     -- B
-    if playdate.buttonJustPressed(playdate.kButtonB) then
-      changeEditorMode("menu")      
+    if playdate.buttonJustReleased(playdate.kButtonB) then 
+      if cursorTarget then 
+      else 
+        changeEditorMode("menu")      
+      end
     end 
-  
+  -- MOVE 
+  elseif editorMode == "move" then 
+    -- A
+    if playdate.buttonJustReleased(playdate.kButtonA) then
+      if prevEditorMode == "manipulate" then 
+        changeEditorMode("manipulate")
+        editorSelectedTarget:setEditorSelected(true)
+      else 
+        changeEditorMode("base")
+        editorSelectedTarget = nil
+      end
+    end
+
   -- MANIPULATE
   elseif editorMode == "manipulate" then 
     -- A
-    if playdate.buttonJustReleased(playdate.kButtonA) then
-      changeEditorMode("base")
+    -- if playdate.buttonJustReleased(playdate.kButtonA) then
+    --   changeEditorMode("base")
+    if playdate.buttonIsPressed(playdate.kButtonA) then 
+      -- if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
+      changeEditorMode("move")
+      -- end   
     end 
+    
+    -- B 
+    if playdate.buttonJustPressed(playdate.kButtonB) then
+      changeEditorMode("base")      
+    end 
+
   -- ALL OTHERS
   else 
     -- A
@@ -673,7 +714,78 @@ function postSpriteDraw()
 end
 
 function drawInEditor() 
-  -- if editorMode == "menu" then 
-      editorMenuRef:draw()
-  -- end
+  editorMenuRef:draw()
+  
+  -- draw controls footer
+  local x,y = graphics.getDrawOffset()
+  local footerHeight = 20
+  x = -x 
+  y = -y + SCREEN_HEIGHT - footerHeight
+  graphics.setColor(graphics.kColorBlack)
+  graphics.fillRect(x, y,SCREEN_WIDTH, footerHeight)
+  graphics.setImageDrawMode(playdate.graphics.kDrawModeFillWhite)
+  graphics.drawText(editorMode, x+5, y + 2)
+  graphics.setImageDrawMode(playdate.graphics.kDrawModeCopy)
+  
+  -- draw button controls
+  graphics.setImageDrawMode(playdate.graphics.kDrawModeFillWhite)
+  local buttonText = ""
+  if editorMode == "base" then 
+    buttonText = "[B] Menu"
+    if cursorTarget then 
+      buttonText = "[B] Delete [A] Select"
+    end 
+  elseif editorMode == "manipulate" then 
+    if manipulateType == "scaleVertical" then 
+      buttonText = "[CRANK] Thickness"
+    elseif manipulateType == "scaleHorizontal" then 
+      buttonText = "[CRANK] Length"      
+    elseif manipulateType == "rotation" then 
+      buttonText = "[CRANK] Rotate"
+    else 
+      buttonText = "[B] Done [A] Move"
+    end 
+  elseif editorMode == "menu" then 
+    buttonText = "[B] Close [A] Select"
+  end 
+  graphics.drawTextInRect(buttonText, x + SCREEN_WIDTH/2.0, y + 2, SCREEN_WIDTH/2.0 - 5, 20, 0, "", kTextAlignment.right)
+  graphics.setImageDrawMode(playdate.graphics.kDrawModeCopy)
+
+
+  -- draw manipulate controls
+  if editorMode == "manipulate" then 
+    local crossSize = 25
+    local crossThickness = 8
+    local xInset = 30
+    local yInset = 40
+    local circleBackSize = 1.4 * crossSize
+    graphics.setColor(graphics.kColorBlack)
+    graphics.setDitherPattern(0.1, graphics.image.kDitherTypeBayer8x8)
+    graphics.fillCircleAtPoint(x + xInset + crossSize/2.0, y - yInset + 0.0*crossThickness/2.0, circleBackSize)
+    -- graphics.drawCircleAtPoint(x + xInset + crossSize/2.0, y - yInset + 0.0*crossThickness/2.0, circleBackSize)
+    graphics.setColor(graphics.kColorWhite)    
+  
+    -- horiz bar
+    graphics.fillRect(x + xInset, y - yInset - crossThickness/2.0, crossSize, crossThickness)    
+    -- vert bar
+    graphics.fillRect(x + xInset + crossSize/2.0 - crossThickness/2.0, y - yInset - crossSize/2.0, crossThickness, crossSize)
+    
+    graphics.setColor(graphics.kColorBlack)    
+    graphics.setDitherPattern(0.5, graphics.image.kDitherTypeDiagonalLine)
+  
+    if manipulateType == "scaleVertical" then 
+      graphics.fillRect(x + xInset + crossSize/2.0 - crossThickness/2.0, y - yInset - crossSize/2.0, crossThickness, crossSize/2.0 - crossThickness/2.0)            
+    elseif manipulateType == "scaleHorizontal" then 
+      graphics.fillRect(x + xInset + crossSize/2.0 + crossThickness/2.0, y - yInset - crossThickness/2.0, crossSize/2.0 - crossThickness/2.0, crossThickness)    
+    elseif manipulateType == "rotation" then 
+      graphics.fillRect(x + xInset + crossSize/2.0 - crossThickness/2.0, y - yInset + crossThickness/2.0, crossThickness, crossSize/2.0 - crossThickness/2.0)    
+    end 
+    
+    graphics.setColor(graphics.kColorWhite)    
+    graphics.setImageDrawMode(playdate.graphics.kDrawModeFillWhite)
+    graphics.drawTextInRect("X", x + xInset + crossSize + 5, y - yInset - crossSize/2.0 + 5, 100, 20, 0, "", kTextAlignment.left)
+    graphics.drawTextInRect("Y", x + xInset + crossSize/2.0 - 50 + 1, y - yInset - crossSize - 5, 100, 20, 0, "", kTextAlignment.center)
+    graphics.drawTextInRect("ROT", x + xInset + crossSize/2.0 - 50 + 1, y - yInset + crossSize - 10, 100, 20, 0, "", kTextAlignment.center)
+    graphics.setImageDrawMode(playdate.graphics.kDrawModeCopy)
+  end 
 end
