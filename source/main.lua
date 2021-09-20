@@ -319,6 +319,14 @@ function changeEditorMode(newMode)
   prevEditorMode = editorMode
   editorMode = newMode
   
+  if prevEditorMode == "menu" then 
+    editorMenuRef:close()
+  end 
+  
+  if editorMode == "menu" then 
+    editorMenuRef:open()
+  end
+  
   if prevEditorMode == "manipulate" then 
     editorLeaveManipulateMode()
   end 
@@ -329,7 +337,8 @@ function editorLeaveManipulateMode()
 end 
 
 function updateInEditor(dt)    
-  
+  playdate.timer.updateTimers()
+
   -- Update platforms
   for i, platform in ipairs(platformSprites) do
     platform:updatePhysics(0.0)
@@ -350,11 +359,15 @@ function updateInEditor(dt)
   if playdate.buttonJustPressed(playdate.kButtonB) then
     if editorMode == "base" then 
       changeEditorMode("menu")
+    elseif editorMode == "menu" then 
+      changeEditorMode("base")
     end 
   end
   
   if playdate.buttonJustReleased(playdate.kButtonB) then 
-    if editorSelectedTarget then 
+    if editorMode == "menu" then 
+      
+    elseif editorSelectedTarget then 
       changeEditorMode("base")
     end 
   end 
@@ -388,7 +401,7 @@ function updateInEditor(dt)
     end
   end
 
-  -- Cursor movement
+  -- Dpad controls tools while in manipulate mode
   if editorMode == "manipulate" then 
     if playdate.buttonIsPressed(playdate.kButtonUp) then 
       manipulateType = "scaleVertical"
@@ -411,9 +424,9 @@ function updateInEditor(dt)
       x,y = editorSelectedTarget.platformBody:getSize()
       editorSelectedTarget.platformBody:setSize(x, math.max(y + crankVal, 16.0))
     end 
-
   end
   
+  -- Update cursor velocity
   if not playdate.buttonIsPressed(playdate.kButtonLeft) and 
    not playdate.buttonIsPressed(playdate.kButtonRight) and 
    not playdate.buttonIsPressed(playdate.kButtonUp) and 
@@ -425,13 +438,13 @@ function updateInEditor(dt)
     cursorMoveVel += dt * 5.0
     cursorMoveVel = math.min(CURSOR_MAX_VEL, cursorMoveVel)
   end
-  
-  if editorMode == "move" then 
-    posX, posY = editorSelectedTarget.platformBody:getCenter()
-    editorSelectedTarget.platformBody:setCenter(cursor:getPosition())
-  end 
     
-  if editorMode ~= "manipulate" then 
+  -- Update cursor position
+  if editorMode == "menu" then 
+    -- don't do anything with cursor while in menu
+  elseif editorMode == "manipulate" then 
+    -- don't do anything with cursor while in manipulate mode
+  else
     if playdate.buttonIsPressed(playdate.kButtonLeft) then
       cursor:moveBy(-cursorMoveVel, 0)
     end
@@ -449,9 +462,20 @@ function updateInEditor(dt)
     end  
   end
   
+  -- Update position of object in move mode
+  if editorMode == "move" then 
+    posX, posY = editorSelectedTarget.platformBody:getCenter()
+    editorSelectedTarget.platformBody:setCenter(cursor:getPosition())
+  end 
+  
+  -- Update cursor target
   if editorMode == "base" then 
     checkCursorTargeting()
   end  
+  
+  if editorMenuRef then 
+    editorMenuRef:update()
+  end
 end
 
 function updateCrankPlatformControl() 
@@ -629,7 +653,7 @@ function postSpriteDraw()
 end
 
 function drawInEditor() 
-  if editorMode == "menu" then 
+  -- if editorMode == "menu" then 
       editorMenuRef:draw()
-  end
+  -- end
 end

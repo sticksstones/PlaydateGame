@@ -1,9 +1,12 @@
+
 function deg2Rad(degrees)
-  return (degrees * 3.14 / 180.0)
+	retVal = (degrees * 3.14 / 180.0)
+  return retVal
 end
 	
 function rad2Deg(radians)
-  return (radians * 180.0 / 3.14)
+	retVal = (radians * 180.0 / 3.14)
+  return retVal
 end
 
 function getPolyCenter(poly)
