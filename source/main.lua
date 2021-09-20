@@ -356,50 +356,70 @@ function updateInEditor(dt)
   end 
   
   -- Buttons
-  if playdate.buttonJustPressed(playdate.kButtonB) then
-    if editorMode == "base" then 
-      changeEditorMode("menu")
-    elseif editorMode == "menu" then 
-      changeEditorMode("base")
-    end 
-  end
   
-  if playdate.buttonJustReleased(playdate.kButtonB) then 
-    if editorMode == "menu" then 
-      
-    elseif editorSelectedTarget then 
+  -- MENU
+  if editorMode == "menu" then 
+    -- B
+    if playdate.buttonJustPressed(playdate.kButtonB) then
       changeEditorMode("base")
-    end 
-  end 
+    end  
     
-  if playdate.buttonJustPressed(playdate.kButtonA) then    
-    if cursorTarget then 
-      editorSelectedTarget = cursorTarget
-      cursor:moveTo(cursorTarget:getPosition())
-      snapCameraToTarget()
-      editorAButtonTimestamp = playdate.getElapsedTime()
+  -- BASE 
+  elseif editorMode == "base" then 
+    -- A
+    if playdate.buttonJustPressed(playdate.kButtonA) then    
+      if cursorTarget then 
+        editorSelectedTarget = cursorTarget
+        cursor:moveTo(cursorTarget:getPosition())
+        snapCameraToTarget()
+        editorAButtonTimestamp = playdate.getElapsedTime()
+      end 
+    end
+
+    if playdate.buttonIsPressed(playdate.kButtonA) then 
+      if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
+        changeEditorMode("move")
+      end   
     end 
-  end
-  
-  if playdate.buttonIsPressed(playdate.kButtonA) then 
-    if editorSelectedTarget and playdate.getElapsedTime() > editorAButtonTimestamp + 0.5 then 
-      changeEditorMode("move")
-    end   
-  end 
-  
-  if playdate.buttonJustReleased(playdate.kButtonA) then
-    if editorMode == "manipulate" then 
-      changeEditorMode("base")
-    elseif cursorTarget and editorSelectedTarget and playdate.getElapsedTime() < editorAButtonTimestamp + 0.5 then 
-      changeEditorMode("manipulate")
-      editorSelectedTarget:setEditorSelected(true)  
-    elseif editorMode == "move" and prevEditorMode == "manipulate" then 
+
+    if playdate.buttonJustReleased(playdate.kButtonA) then     
+      if cursorTarget and editorSelectedTarget and playdate.getElapsedTime() < editorAButtonTimestamp + 0.5 then 
         changeEditorMode("manipulate")
-    else
+        editorSelectedTarget:setEditorSelected(true)  
+      elseif prevEditorMode == "manipulate" then 
+          changeEditorMode("manipulate")
+      end 
+    end
+
+    -- B
+    if playdate.buttonJustPressed(playdate.kButtonB) then
+      changeEditorMode("menu")      
+    end 
+  
+  -- MANIPULATE
+  elseif editorMode == "manipulate" then 
+    -- A
+    if playdate.buttonJustReleased(playdate.kButtonA) then
+      changeEditorMode("base")
+    end 
+  -- ALL OTHERS
+  else 
+    -- A
+    if playdate.buttonJustReleased(playdate.kButtonA) then
       changeEditorMode("base")
       editorSelectedTarget = nil
     end
-  end
+  
+    -- B
+    if playdate.buttonJustReleased(playdate.kButtonB) then 
+      if editorSelectedTarget then 
+        changeEditorMode("base")
+      end 
+    end    
+  end 
+      
+  
+  
 
   -- Dpad controls tools while in manipulate mode
   if editorMode == "manipulate" then 

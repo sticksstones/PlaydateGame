@@ -19,7 +19,7 @@ local MENU_WIDTH <const> = 120
 local opened = false
 local slideTimer = nil
 local listview = nil
-local menuOptions = {"Sword", "Shield", "Arrow", "Sling", "Stone", "Longbow", "MorningStar", "Armour", "Dagger", "Rapier", "Skeggox", "War Hammer", "Battering Ram", "Catapult"}
+local menuOptions = {"Platform", "Ball"}
 
 
 function EditorMenu:init()	
