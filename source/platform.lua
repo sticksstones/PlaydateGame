@@ -21,7 +21,7 @@ end
 function Platform:updatePhysics(dt) 
 	Platform.super.updatePhysics(self, dt)
 
-	self.platformBody:setTorque(self.platformBody:getTorque() * math.pow(0.2, dt))
+	self.body:setTorque(self.body:getTorque() * math.pow(0.2, dt))
 end
 
 function Platform:draw() 

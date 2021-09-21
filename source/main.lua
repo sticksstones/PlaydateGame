@@ -165,9 +165,11 @@ local function createBall(x, y, width, height, mass)
 end
 
 function loadLevelFromData(levelData)
-  platformData = levelData["platforms"]
-  for i, platform in ipairs(platformData) do 
-    createPlatform(platform["x"], platform["y"], platform["width"], platform["height"], platform["rotation"])  
+  levelObjData = levelData["levelObjs"]
+  for i, levelObj in ipairs(levelObjData) do 
+    if levelObj.type == "Platform" then       
+      createPlatform(levelObj["x"], levelObj["y"], levelObj["width"], levelObj["height"], levelObj["rotation"])  
+    end 
   end
 
   -- Create box
@@ -177,12 +179,12 @@ end
 
 function writeLevelData() 
   levelData["player"] = {x=0.6*SCREEN_WIDTH, y=0.0, width=16, height=16, mass=1.0}
-  levelData["platforms"] = {}
-  for i, platform in ipairs(levelObjs) do
-    platformBody = platform.platformBody
-    x,y = platformBody:getCenter()
-    width,height = platformBody:getSize()
-    levelData["platforms"][i] = {x=x, y=y, width=width, height=height, rotation=rad2Deg(platformBody:getRotation())}  
+  levelData["levelObjs"] = {}
+  for i, levelObj in ipairs(levelObjs) do
+    local body = levelObj.body
+    local x,y = body:getCenter()
+    local width,height = body:getSize()
+    levelData["levelObjs"][i] = {type=levelObj.className, x=x, y=y, width=width, height=height, rotation=rad2Deg(body:getRotation())}  
   end 
   
   playdate.datastore.write(levelData)    
@@ -191,10 +193,10 @@ end
 function initializeLevelData() 
   local levelData = {}
   levelData["player"] = {x=0.6*SCREEN_WIDTH, y=0.0, width=16, height=16, mass=1.0}
-  levelData["platforms"] = {}
-  levelData["platforms"][1] = {x=0.5*SCREEN_WIDTH,y=0.5*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=0.0}
-  levelData["platforms"][2] = {x=0.9*SCREEN_WIDTH,y=0.8*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=90.0}
-  levelData["platforms"][3] = {x=0.4*SCREEN_WIDTH,y=0.7*SCREEN_HEIGHT,width=100.0,height=16.0,rotation=0.0}
+  levelData["levelObjs"] = {}
+  levelData["levelObjs"][1] = {type="Platform",x=0.5*SCREEN_WIDTH,y=0.5*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=0.0}
+  levelData["levelObjs"][2] = {type="Platform",x=0.9*SCREEN_WIDTH,y=0.8*SCREEN_HEIGHT,width=200.0,height=16.0,rotation=90.0}
+  levelData["levelObjs"][3] = {type="Platform",x=0.4*SCREEN_WIDTH,y=0.7*SCREEN_HEIGHT,width=100.0,height=16.0,rotation=0.0}
   
   playdate.datastore.write(levelData)  
 end
@@ -273,7 +275,7 @@ function enterEditor()
   end
   
   for i,platform in ipairs(levelObjs) do     
-    platform.platformBody:setRotation(deg2Rad(platform.originalRotation))
+    platform.body:setRotation(deg2Rad(platform.originalRotation))
   end 
   
   ball.physObj:setCenter(ball.originalPosX, ball.originalPosY)
@@ -359,7 +361,7 @@ end
 function deleteCursorTarget() 
   for i=1,#levelObjs do 
     if levelObjs[i] == cursorTarget then 
-      world:removeBody(levelObjs[i].platformBody)
+      world:removeBody(levelObjs[i].body)
       levelObjs[i]:remove()
       table.remove(levelObjs,i)
       return
@@ -515,16 +517,16 @@ function updateInEditor(dt)
     
     local crankVal = playdate.getCrankChange()
     if manipulateType == "rotation" then 
-      currentRotation = editorSelectedTarget.platformBody:getRotation()
+      currentRotation = editorSelectedTarget.body:getRotation()
       newRotation = currentRotation + deg2Rad(crankVal)
-      editorSelectedTarget.platformBody:setRotation(newRotation)
+      editorSelectedTarget.body:setRotation(newRotation)
       editorSelectedTarget.originalRotation = rad2Deg(newRotation)
     elseif manipulateType == "scaleHorizontal" then 
-      x,y = editorSelectedTarget.platformBody:getSize()
-      editorSelectedTarget.platformBody:setSize(math.max(x + crankVal, 16.0), y)
+      x,y = editorSelectedTarget.body:getSize()
+      editorSelectedTarget.body:setSize(math.max(x + crankVal, 16.0), y)
     elseif manipulateType == "scaleVertical" then 
-      x,y = editorSelectedTarget.platformBody:getSize()
-      editorSelectedTarget.platformBody:setSize(x, math.max(y + crankVal, 16.0))
+      x,y = editorSelectedTarget.body:getSize()
+      editorSelectedTarget.body:setSize(x, math.max(y + crankVal, 16.0))
     end 
   end
   
@@ -566,8 +568,8 @@ function updateInEditor(dt)
   
   -- Update position of object in move mode
   if editorMode == "move" then 
-    posX, posY = editorSelectedTarget.platformBody:getCenter()
-    editorSelectedTarget.platformBody:setCenter(cursor:getPosition())
+    posX, posY = editorSelectedTarget.body:getCenter()
+    editorSelectedTarget.body:setCenter(cursor:getPosition())
   end 
   
   -- Update cursor target
@@ -593,7 +595,7 @@ function updateCrankPlatformControl()
     delta *= -1.0
   end
 
-  local selectedBolt = levelObjs[selectedPlatformIndex].platformBody
+  local selectedBolt = levelObjs[selectedPlatformIndex].body
   selectedBolt:setTorque(selectedBolt:getTorque() + crankVal*10000.0)  
 end
 

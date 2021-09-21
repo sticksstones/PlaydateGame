@@ -10,7 +10,7 @@ local geometry <const> = playdate.geometry
 class('PlatformBase').extends(playdate.graphics.sprite)
 
 function PlatformBase:updateImage() 
-   local drawPoly = geometry.polygon.new(self.platformBody:getPolygon())
+   local drawPoly = geometry.polygon.new(self.body:getPolygon())
    local x1 = drawPoly:getPointAt(1).x
    local x2 = drawPoly:getPointAt(2).x 
    local y1 = drawPoly:getPointAt(1).y 
@@ -25,7 +25,7 @@ function PlatformBase:updateImage()
    self.height = geometry.lineSegment.new(x2,y2,x21,y21):length()
    self.center = geometry.point.new((x1+x21)/2.0, (y1+y21)/2.0)
  
-   self.rectWidth, self.rectHeight = self.platformBody:getSize()
+   self.rectWidth, self.rectHeight = self.body:getSize()
    local contextImg = graphics.image.new(self.rectWidth+1, self.rectHeight+1, graphics.kColorClear)
    graphics.lockFocus(contextImg)
    graphics.setColor(graphics.kColorBlack)
@@ -43,7 +43,7 @@ function PlatformBase:init(width,height,body,ninesliceImg)
 	self.selected = false
 	
 	PlatformBase.super.init(self)
-	self.platformBody = body
+	self.body = body
 	self.originalRotation = rad2Deg(body:getRotation())
 	self:setZIndex(0)
 	self:updateImage()
@@ -51,7 +51,7 @@ function PlatformBase:init(width,height,body,ninesliceImg)
 end
 
 function PlatformBase:updatePhysics(dt) 	
-	local x,y = self.platformBody:getCenter()
+	local x,y = self.body:getCenter()
 	self:moveTo(x,y)
 
 	local boundsRect = self:getBoundsRect()
@@ -59,9 +59,9 @@ function PlatformBase:updatePhysics(dt)
 end
 
 function PlatformBase:draw() 
-	local currentRectWidth, currentRectHeight = self.platformBody:getSize()
+	local currentRectWidth, currentRectHeight = self.body:getSize()
 		
-	local drawPoly = geometry.polygon.new(self.platformBody:getPolygon())
+	local drawPoly = geometry.polygon.new(self.body:getPolygon())
 	  local x1 = drawPoly:getPointAt(1).x
 	  local x2 = drawPoly:getPointAt(2).x 
 	  local y1 = drawPoly:getPointAt(1).y 
@@ -95,7 +95,7 @@ function PlatformBase:draw()
 		self:updateImage()
 	end 	
 	
-	local rotation = math.fmod(rad2Deg(self.platformBody:getRotation()), 360.0)
+	local rotation = math.fmod(rad2Deg(self.body:getRotation()), 360.0)
 	if self:getRotation() ~= rotation then 
 		  self:setRotation(rotation)
 	end			
