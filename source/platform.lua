@@ -12,7 +12,8 @@ class('Platform').extends(PlatformBase)
 
 function Platform:init(width,height,body,ninesliceImg)	
 	Platform.super.init(self,width,height,body,ninesliceImg)
-	
+
+	self.isSelectable = true
 	self.boltAnimTimer = nil
 	self.selected = false
 end

@@ -39,6 +39,8 @@ function PlatformBase:init(width,height,body,ninesliceImg)
 	self.highlighted = false
 	self.editorSelected = false
 	self.ninesliceImgRef = ninesliceImg
+	self.isSelectable = false
+	self.selected = false
 	
 	PlatformBase.super.init(self)
 	self.platformBody = body
@@ -105,4 +107,8 @@ end
 
 function PlatformBase:setHighlighted(flag)
 	self.highlighted = flag
+end
+
+function PlatformBase:setSelected(flag)
+	self.selected = self.isSelectable and flag
 end

@@ -60,11 +60,11 @@ local WORLD_HEIGHT <const> = SCREEN_WIDTH
 
 local WORLD_PIXEL_SCALE <const> = 1.0
 
+local wallninesliceImg = nil
 local ninesliceImg = nil
 
 local world = nil
-local platforms = table.create(2, 0)
-local platformSprites = table.create(2,0)
+local levelObjs = table.create(2,0)
 local selectedPlatformIndex = 0
 local box = nil
 local ball = nil
@@ -115,12 +115,30 @@ local function createPlatform(x, y, width, height, rotation)
   platform:setI(100000.0)
   platform:setRotation(deg2Rad(rotation))
   world:addBody(platform)
-  platforms[#platforms + 1] = platform
-  
+    
   platformObj = Platform(width,height,platform,ninesliceImg)
   platformObj:moveTo(x,y)
   platformObj:setRotation(rotation)
-  platformSprites[#platformSprites + 1] = platformObj
+  levelObjs[#levelObjs + 1] = platformObj
+  return platformObj
+end
+
+local function createWall(x, y, width, height, rotation)
+  rotation = rotation or 0.0
+  local platform = playbox.body.new(width, height, 0)
+  platform:setCenter(x, y)
+  platform:setFriction(0.7)
+  platform:setLockPosition(1)
+  platform:setGravityMult(0.0)
+  platform:setTorque(0.0)
+  platform:setI(100000.0)
+  platform:setRotation(deg2Rad(rotation))
+  world:addBody(platform)
+  
+  platformObj = Wall(width,height,platform,ninesliceImg)
+  platformObj:moveTo(x,y)
+  platformObj:setRotation(rotation)
+  levelObjs[#levelObjs + 1] = platformObj
   return platformObj
 end
 
@@ -160,7 +178,7 @@ end
 function writeLevelData() 
   levelData["player"] = {x=0.6*SCREEN_WIDTH, y=0.0, width=16, height=16, mass=1.0}
   levelData["platforms"] = {}
-  for i, platform in ipairs(platformSprites) do
+  for i, platform in ipairs(levelObjs) do
     platformBody = platform.platformBody
     x,y = platformBody:getCenter()
     width,height = platformBody:getSize()
@@ -186,7 +204,7 @@ function setup()
   playdate.display.setRefreshRate(30)
   playdate.graphics.setBackgroundColor(playdate.graphics.kColorClear)
   ninesliceImg = graphics.nineSlice.new("assets/pngs/general/Platform9SliceSquare", 4, 4, 8, 8)
-
+  wallninesliceImg = graphics.nineSlice.new("assets/pngs/general/Wall9SliceSquare", 4, 4, 8, 8)
   -- Setup camera
   currentCameraOffset = geometry.point.new(0,0)
   desiredCameraOffset = geometry.point.new(0,0)
@@ -205,6 +223,7 @@ function setup()
   levelData = playdate.datastore.read()
   loadLevelFromData(levelData)
   
+  -- Setup BG
   imageTable = playdate.graphics.imagetable.new("assets/pngs/tilemaps/tilemap")
   bgTilemap = playdate.graphics.tilemap.new()
   bgTilemap:setImageTable(imageTable)
@@ -228,8 +247,8 @@ function setup()
 end
 
 function leaveGameMode() 
-  if platformSprites[selectedPlatformIndex] then 
-    platformSprites[selectedPlatformIndex]:setSelected(false)
+  if levelObjs[selectedPlatformIndex] then 
+    levelObjs[selectedPlatformIndex]:setSelected(false)
   end
   selectedPlatformIndex = -1
   selectedBolt = nil  
@@ -253,8 +272,8 @@ function enterEditor()
     cameraTarget = cursor
   end
   
-  for i,platform in ipairs(platformSprites) do
-    platforms[i]:setRotation(deg2Rad(platform.originalRotation))
+  for i,platform in ipairs(levelObjs) do     
+    platform.platformBody:setRotation(deg2Rad(platform.originalRotation))
   end 
   
   ball.physObj:setCenter(ball.originalPosX, ball.originalPosY)
@@ -338,12 +357,11 @@ function checkCursorTargeting()
 end
 
 function deleteCursorTarget() 
-  for i=1,#platformSprites do 
-    if platformSprites[i] == cursorTarget then 
-      world:removeBody(platforms[i])
-      platformSprites[i]:remove()
-      table.remove(platformSprites,i)
-      table.remove(platforms,i)
+  for i=1,#levelObjs do 
+    if levelObjs[i] == cursorTarget then 
+      world:removeBody(levelObjs[i].platformBody)
+      levelObjs[i]:remove()
+      table.remove(levelObjs,i)
       return
     end 
   end 
@@ -374,7 +392,7 @@ function updateInEditor(dt)
   playdate.timer.updateTimers()
 
   -- Update platforms
-  for i, platform in ipairs(platformSprites) do
+  for i, platform in ipairs(levelObjs) do
     platform:updatePhysics(0.0)
   end
   
@@ -575,25 +593,25 @@ function updateCrankPlatformControl()
     delta *= -1.0
   end
 
-  local selectedBolt = platforms[selectedPlatformIndex]
+  local selectedBolt = levelObjs[selectedPlatformIndex].platformBody
   selectedBolt:setTorque(selectedBolt:getTorque() + crankVal*10000.0)  
 end
 
 function jumpPlatform(direction)
-  if platformSprites[selectedPlatformIndex] then 
-    platformSprites[selectedPlatformIndex]:setSelected(false)
+  if levelObjs[selectedPlatformIndex] then 
+    levelObjs[selectedPlatformIndex]:setSelected(false)
   end 
   
   selectedPlatformIndex -= direction  
   
   if selectedPlatformIndex < 1 then
-    selectedPlatformIndex = #platformSprites
-  elseif selectedPlatformIndex > #platformSprites then
+    selectedPlatformIndex = #levelObjs
+  elseif selectedPlatformIndex > #levelObjs then
     selectedPlatformIndex = 1
   end
   
-  if platformSprites[selectedPlatformIndex] then 
-    platformSprites[selectedPlatformIndex]:setSelected(true)
+  if levelObjs[selectedPlatformIndex] then 
+    levelObjs[selectedPlatformIndex]:setSelected(true)
   end
 
 end
@@ -683,7 +701,7 @@ function update(dt)
   world:update(dt)
   
   -- Update platforms
-  for i, platform in ipairs(platformSprites) do
+  for i, platform in ipairs(levelObjs) do
     platform:updatePhysics(dt)
   end
 
@@ -731,7 +749,7 @@ end
 
 function postSpriteDraw() 
   -- Draw platforms
-  for i, platform in ipairs(platformSprites) do
+  for i, platform in ipairs(levelObjs) do
     platform:draw()
   end    
 end
@@ -754,22 +772,22 @@ function drawInEditor()
   graphics.setImageDrawMode(playdate.graphics.kDrawModeFillWhite)
   local buttonText = ""
   if editorMode == "base" then 
-    buttonText = "[B] Menu"
+    buttonText = "(b) menu"
     if cursorTarget then 
-      buttonText = "[B] Delete [A] Select"
+      buttonText = "(b) delete (a) select"
     end 
   elseif editorMode == "manipulate" then 
     if manipulateType == "scaleVertical" then 
-      buttonText = "[CRANK] Thickness"
+      buttonText = "(crank) thickness"
     elseif manipulateType == "scaleHorizontal" then 
-      buttonText = "[CRANK] Length"      
+      buttonText = "(crank) length"      
     elseif manipulateType == "rotation" then 
-      buttonText = "[CRANK] Rotate"
+      buttonText = "(crank) rotate"
     else 
-      buttonText = "[B] Done [A] Move"
+      buttonText = "(b) done (a) move"
     end 
   elseif editorMode == "menu" then 
-    buttonText = "[B] Close [A] Select"
+    buttonText = "(b) close (a) select"
   end 
   graphics.drawTextInRect(buttonText, x + SCREEN_WIDTH/2.0, y + 2, SCREEN_WIDTH/2.0 - 5, 20, 0, "", kTextAlignment.right)
   graphics.setImageDrawMode(playdate.graphics.kDrawModeCopy)
