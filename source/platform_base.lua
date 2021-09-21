@@ -36,15 +36,16 @@ function PlatformBase:updateImage()
 end 
 
 function PlatformBase:init(width,height,body,ninesliceImg)	
+	PlatformBase.super.init(self)
+	
 	self.highlighted = false
 	self.editorSelected = false
 	self.ninesliceImgRef = ninesliceImg
 	self.isSelectable = false
 	self.selected = false
 	
-	PlatformBase.super.init(self)
 	self.body = body
-	self.originalRotation = rad2Deg(body:getRotation())
+	self.originalRotation = rad2Deg(self.body:getRotation())
 	self:setZIndex(0)
 	self:updateImage()
 	self:add()

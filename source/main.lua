@@ -6,6 +6,7 @@ import "CoreLibs/timer"
 import "CoreLibs/sprites"
 import 'ball'
 import 'platform'
+import 'wall'
 import 'editorMenu'
 import 'shared_funcs'
 
@@ -125,21 +126,21 @@ end
 
 local function createWall(x, y, width, height, rotation)
   rotation = rotation or 0.0
-  local platform = playbox.body.new(width, height, 0)
-  platform:setCenter(x, y)
-  platform:setFriction(0.7)
-  platform:setLockPosition(1)
-  platform:setGravityMult(0.0)
-  platform:setTorque(0.0)
-  platform:setI(100000.0)
-  platform:setRotation(deg2Rad(rotation))
-  world:addBody(platform)
+  local wall = playbox.body.new(width, height, 0)
+  wall:setCenter(x, y)
+  wall:setFriction(0.7)
+  wall:setLockPosition(1)
+  -- wall:setGravityMult(0.0)
+  -- wall:setTorque(0.0)
+  -- wall:setI(0.0)
+  wall:setRotation(deg2Rad(rotation))
+  world:addBody(wall)
   
-  platformObj = Wall(width,height,platform,ninesliceImg)
-  platformObj:moveTo(x,y)
-  platformObj:setRotation(rotation)
-  levelObjs[#levelObjs + 1] = platformObj
-  return platformObj
+  wallObj = Wall(width,height,wall,wallninesliceImg)
+  wallObj:moveTo(x,y)
+  wallObj:setRotation(rotation)
+  levelObjs[#levelObjs + 1] = wallObj
+  return wallObj
 end
 
 function editorCreatePlatform()
@@ -151,6 +152,17 @@ function editorCreatePlatform()
 
   changeEditorMode("manipulate")
 end 
+
+function editorCreateWall()
+  local x,y = cursor:getPosition()
+  local wall = createWall(x, y, 20, 20, 0.0)
+  editorSelectedTarget = wall
+  cursor:moveTo(editorSelectedTarget:getPosition())
+  snapCameraToTarget()
+
+  changeEditorMode("manipulate")
+end 
+
 
 function editorCloseMenu() 
   changeEditorMode("base")
@@ -169,6 +181,8 @@ function loadLevelFromData(levelData)
   for i, levelObj in ipairs(levelObjData) do 
     if levelObj.type == "Platform" then       
       createPlatform(levelObj["x"], levelObj["y"], levelObj["width"], levelObj["height"], levelObj["rotation"])  
+    elseif levelObj.type == "Wall" then 
+      createWall(levelObj["x"], levelObj["y"], levelObj["width"], levelObj["height"], levelObj["rotation"])        
     end 
   end
 
@@ -274,8 +288,8 @@ function enterEditor()
     cameraTarget = cursor
   end
   
-  for i,platform in ipairs(levelObjs) do     
-    platform.body:setRotation(deg2Rad(platform.originalRotation))
+  for i,levelObj in ipairs(levelObjs) do     
+    levelObj.body:setRotation(deg2Rad(levelObj.originalRotation))
   end 
   
   ball.physObj:setCenter(ball.originalPosX, ball.originalPosY)
@@ -393,9 +407,9 @@ end
 function updateInEditor(dt)    
   playdate.timer.updateTimers()
 
-  -- Update platforms
-  for i, platform in ipairs(levelObjs) do
-    platform:updatePhysics(0.0)
+  -- Update objects
+  for i, levelObj in ipairs(levelObjs) do
+    levelObj:updatePhysics(0.0)
   end
   
   updateBall()
@@ -604,13 +618,24 @@ function jumpPlatform(direction)
     levelObjs[selectedPlatformIndex]:setSelected(false)
   end 
   
-  selectedPlatformIndex -= direction  
-  
-  if selectedPlatformIndex < 1 then
-    selectedPlatformIndex = #levelObjs
-  elseif selectedPlatformIndex > #levelObjs then
-    selectedPlatformIndex = 1
-  end
+  local selectionFound = false
+  local iterationsDone = 0
+  repeat 
+    selectedPlatformIndex -= direction  
+        
+    if selectedPlatformIndex < 1 then
+      selectedPlatformIndex = #levelObjs
+    elseif selectedPlatformIndex > #levelObjs then
+      selectedPlatformIndex = 1
+    end
+    
+    if levelObjs[selectedPlatformIndex].isSelectable then 
+      selectionFound = true
+    end 
+    
+    iterationsDone += 1
+    
+  until (iterationsDone >= #levelObjs or selectionFound == true)
   
   if levelObjs[selectedPlatformIndex] then 
     levelObjs[selectedPlatformIndex]:setSelected(true)
@@ -702,9 +727,9 @@ function update(dt)
   -- Update physics world
   world:update(dt)
   
-  -- Update platforms
-  for i, platform in ipairs(levelObjs) do
-    platform:updatePhysics(dt)
+  -- Update level objs
+  for i, levelObj in ipairs(levelObjs) do
+    levelObj:updatePhysics(dt)
   end
 
   -- Update ball rotation
@@ -750,9 +775,9 @@ function draw()
 end
 
 function postSpriteDraw() 
-  -- Draw platforms
-  for i, platform in ipairs(levelObjs) do
-    platform:draw()
+  -- Draw level objs
+  for i, levelObj in ipairs(levelObjs) do
+    levelObj:draw()
   end    
 end
 

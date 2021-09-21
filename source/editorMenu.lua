@@ -58,7 +58,10 @@ function EditorMenu:selectOption(item)
 	
 	if name == "Platform" then 
 		editorCreatePlatform()
+	elseif name == "Wall" then 
+		editorCreateWall()
 	end 
+	
 end 
 
 function EditorMenu:update()
